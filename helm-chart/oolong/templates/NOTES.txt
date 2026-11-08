@@ -21,6 +21,9 @@ The server uses the bundled fixtures baked into the image at /app/src/content.
 
 {{- if and .Values.gitPod.enabled .Values.persistence.enabled }}
 Git sync accepts only https:// remotes. Optional gitPod.allowedHosts is an exact hostname allowlist. Restrict Git-pod egress (NetworkPolicy or cluster egress) so internal and metadata destinations stay unreachable; hostname checks do not follow DNS changes or Git redirects.
+{{- if eq .Values.gitPod.auth.type "token" }}
+Git auth is token: Secret {{ .Values.gitPod.auth.existingSecret }} must exist in this namespace with the keys {{ .Values.gitPod.auth.token.usernameKey }} and {{ .Values.gitPod.auth.token.tokenKey }}. A rotated Secret is picked up without a restart. Use a read-only token scoped to the one repository.
+{{- end }}
 {{- end }}
 {{- if .Values.useTraefikLe }}
 Oolong is accessible via Traefik at:

@@ -68,6 +68,78 @@ validate_git_repo_url() {
   return 0
 }
 
+# configure_git_auth <helper-script> <auth-dir>
+# Wires git to the credential helper for OOLONG_GIT_AUTH_TYPE (none or token). Everything goes
+# through the environment (git 2.31+), so no config file holding a secret is written. Only the
+# host of GIT_REPO_URL is offered the token. Call after validate_git_repo_url.
+configure_git_auth() {
+  _helper="$1"
+  _authdir="$2"
+
+  # Missing or bad credentials fail at once instead of waiting for a terminal while the
+  # publish lock is held.
+  export GIT_TERMINAL_PROMPT=0
+
+  # Both paths end up in a git config value that git runs through a shell.
+  case "$_helper" in
+    '' | *[!A-Za-z0-9/._-]*)
+      echo "ERROR: credential helper path must match [A-Za-z0-9/._-]+" >&2
+      return 1
+      ;;
+  esac
+  case "$_authdir" in
+    '' | *[!A-Za-z0-9/._-]*)
+      echo "ERROR: credential directory path must match [A-Za-z0-9/._-]+" >&2
+      return 1
+      ;;
+  esac
+
+  case "$OOLONG_GIT_AUTH_TYPE" in
+    none)
+      return 0
+      ;;
+    token)
+      ;;
+    *)
+      echo "ERROR: OOLONG_GIT_AUTH_TYPE must be none or token" >&2
+      return 1
+      ;;
+  esac
+
+  # The helper is the one reader of the two files; its output is discarded here and its
+  # message names the file that is missing, empty or not a single line.
+  if ! /bin/sh "$_helper" "$_authdir" get < /dev/null > /dev/null; then
+    return 1
+  fi
+
+  case "$GIT_REPO_URL" in
+    *://*)
+      ;;
+    *)
+      echo "ERROR: GIT_REPO_URL has no scheme" >&2
+      return 1
+      ;;
+  esac
+  _scheme="${GIT_REPO_URL%%://*}"
+  _rest="${GIT_REPO_URL#*://}"
+  _hostport="${_rest%%/*}"
+  case "$_hostport" in
+    '' | *@*)
+      echo "ERROR: GIT_REPO_URL has no usable host for credentials" >&2
+      return 1
+      ;;
+  esac
+
+  # The first entry empties credential.helper, which resets every helper from system and
+  # global config (a "store" helper would otherwise write the token to disk).
+  export GIT_CONFIG_COUNT=2
+  export GIT_CONFIG_KEY_0="credential.helper"
+  export GIT_CONFIG_VALUE_0=""
+  export GIT_CONFIG_KEY_1="credential.${_scheme}://${_hostport}.helper"
+  export GIT_CONFIG_VALUE_1="/bin/sh ${_helper} ${_authdir}"
+  return 0
+}
+
 publish_lock_file() {
   printf '%s/.oolong-publish.lock' "$CONTENT_DIR"
 }
