@@ -44,8 +44,14 @@ data:
       exit 1
     fi
 
+    . /scripts/git-publish.inc.sh
+
+    validate_git_repo_url || exit 1
+    configure_git_auth /scripts/git-credential-oolong.sh /etc/oolong-git-auth || exit 1
+
     echo "Configuration:"
     echo "  Repository: $GIT_REPO_URL"
+    echo "  Auth: $OOLONG_GIT_AUTH_TYPE"
     echo "  Content Directory: $CONTENT_DIR"
     echo "  Work Directory: $WORK_DIR"
     echo "  Branch: $GIT_BRANCH"
@@ -61,10 +67,6 @@ data:
 
     mkdir -p "$REVISIONS_DIR"
 
-    . /scripts/git-publish.inc.sh
-
-    validate_git_repo_url || exit 1
-
     locked_sync_and_publish
 
     echo "Starting sync loop..."
@@ -79,4 +81,6 @@ data:
     done
   git-publish.inc.sh: |
 {{ .Files.Get "scripts/git-publish.inc.sh" | nindent 4 }}
+  git-credential-oolong.sh: |
+{{ .Files.Get "scripts/git-credential-oolong.sh" | nindent 4 }}
 {{- end }}

@@ -54,7 +54,7 @@ Oolong uses `oolong/oolong-server/src/content/` directory to serve TEA content (
 
 The provided Dockerfile will package content from `oolong/content/` directory. This way the content will be baked into the container image.
 
-Alternatively, you can mount the content with docker-compose or using git pod in the helm chart installation. If using git pod option, the content will be synchronized with the git repository at the specified interval (currently, only public git repositories are supported).
+Alternatively, you can mount the content with docker-compose or using git pod in the helm chart installation. If using git pod option, the content will be synchronized with the git repository at the specified interval.
 
 For content management, use [ReARM CLI](https://github.com/relizaio/rearm-cli). See documentation for oolong content management commands [here](https://github.com/relizaio/rearm-cli/blob/main/docs/oolong.md).
 
@@ -154,11 +154,32 @@ Do not install the published `0.0.7` chart / `25.10.6` image for this branch. Us
 
 ### Git Pod Configuration
 
-Enable automatic Git synchronization to populate content from a public HTTPS Git repository. The Git pod uses `Recreate` and a `flock` on the shared volume so an upgrade does not run two publishers against the same checkout. The lock is held by the publishing process and is released when that process exits. It rolls when the rendered Git ConfigMap changes (`checksum/git-script`). The server keeps serving its accepted snapshot while the Git pod restarts.
+Enable automatic Git synchronization to populate content from an HTTPS Git repository, public or private (see Private repositories). The Git pod uses `Recreate` and a `flock` on the shared volume so an upgrade does not run two publishers against the same checkout. The lock is held by the publishing process and is released when that process exits. It rolls when the rendered Git ConfigMap changes (`checksum/git-script`). The server keeps serving its accepted snapshot while the Git pod restarts.
 
 `gitPod.repoUrl` must be `https://` with no userinfo. The Git pod disables `git://`, `ssh://`, `http://`, and `file://`. Optional `gitPod.allowedHosts` is an exact hostname allowlist. Hostname checks do not follow DNS changes or Git redirects; apply a NetworkPolicy or cluster egress control so the Git pod cannot reach internal or metadata destinations.
 
 `gitPod.revisionRetentionCount` is an integer from 1 to 1000 (`values.schema.json`). Helm passes it as the `REVISION_RETENTION_COUNT` environment variable. The Git script validates the value and never interpolates Helm values into shell text.
+
+#### Private repositories
+
+To sync a private repository over HTTPS, create a Secret in the release namespace with the user name and the token as two keys, from files or a secret manager, not from a literal on the command line (a literal lands in your shell history):
+
+```bash
+kubectl -n oolong create secret generic oolong-git-auth \
+  --from-file=username=./username --from-file=token=./token
+```
+
+Then set `gitPod.auth.type=token` and `gitPod.auth.existingSecret=oolong-git-auth` (and `gitPod.auth.token.usernameKey` / `tokenKey` if your keys are named differently). Each value must be a single line. The chart never creates this Secret, so the token is never in a values file or in the Helm release record.
+
+Which user name goes with the token, per provider. Scope the token to read-only access on the one repository:
+
+- GitHub fine-grained personal access token: the account's user name; token with read-only Contents permission on the one repository.
+- GitLab deploy token: the username GitLab generates with it; scope `read_repository`.
+- Bitbucket app password: the Bitbucket user name; repository read permission.
+
+The Secret is mounted as files in `/etc/oolong-git-auth` and read by a credential helper that git runs only for the host of `gitPod.repoUrl`. The token is never in the URL, a command line, an environment variable, `.git/config` or a published revision. A rotated Secret is picked up on a later sync without a restart (kubelet refreshes the mount, typically within about a minute). The files are readable through the pod's `fsGroup`; if you remove `podSecurityContext.fsGroup`, the Git pod fails at start-up and names the unreadable file.
+
+Two render-time refusals protect against leaks. A `gitPod.repoUrl` that contains `@` fails the render, so a token is never written into the URL. `gitPod.env` names that the chart sets or that would override or expose the credential wiring (`GIT_CONFIG_COUNT`, `GIT_ASKPASS`, `GIT_TRACE*`, `GIT_SSL_NO_VERIFY`, `GIT_ALLOW_PROTOCOL` and others) now fail the render with the name; before, seven of them were dropped silently.
 
 Server pods are labeled `app.kubernetes.io/component=server` and Git pods `app.kubernetes.io/component=git`, so `kubectl logs deploy/<release>` no longer selects both. Those Deployment selectors are immutable: if an upgrade from an older chart fails, delete the two Deployments (keep the PVC) and run `helm upgrade` again.
 
@@ -173,7 +194,11 @@ helm upgrade --install --create-namespace -n oolong oolong helm-chart/oolong \
 
 **Configuration options:**
 - `gitPod.enabled` - Enable/disable Git pod (default: `false`)
-- `gitPod.repoUrl` - Public `https://` Git URL (required when enabled)
+- `gitPod.repoUrl` - `https://` Git URL without credentials (required when enabled)
+- `gitPod.auth.type` - `none` (anonymous clone, default) or `token` (see Private repositories)
+- `gitPod.auth.existingSecret` - Name of an existing Secret holding the user name and token (required for `token`, empty for `none`)
+- `gitPod.auth.token.usernameKey` - Key in that Secret holding the user name (default: `username`)
+- `gitPod.auth.token.tokenKey` - Key in that Secret holding the token (default: `token`)
 - `gitPod.allowedHosts` - Optional exact hostname allowlist (default: empty)
 - `gitPod.branch` - Git branch to sync (default: `main`)
 - `gitPod.syncInterval` - Sync interval in seconds (default: `60`)

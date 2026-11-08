@@ -68,16 +68,66 @@ app.kubernetes.io/component: git
 {{- end }}
 
 {{/*
-Public HTTPS remotes only. Local file remotes stay in tests that call
+HTTPS remotes without credentials in the URL. Local file remotes stay in tests that call
 sync_worktree directly, not the Git pod entrypoint.
 */}}
 {{- define "oolong.requireGitRepoUrl" -}}
 {{- if not .Values.gitPod.repoUrl }}
 {{- fail "gitPod.repoUrl is required when gitPod.enabled is true" }}
 {{- end }}
+{{- if contains "@" .Values.gitPod.repoUrl }}
+{{- fail "gitPod.repoUrl must not contain @ (no user name or token in the URL); set gitPod.auth for a private repository" }}
+{{- end }}
 {{- if not (hasPrefix "https://" .Values.gitPod.repoUrl) }}
 {{- fail "gitPod.repoUrl must be an https:// URL. The Git pod disables git://, ssh://, http://, and file://." }}
 {{- end }}
+{{- end }}
+
+{{/*
+Validated gitPod.auth.type: none or token. Repeats the schema rules so they also hold with
+--skip-schema-validation. Messages name the value path and never include a value.
+*/}}
+{{- define "oolong.gitAuthType" -}}
+{{- $auth := .Values.gitPod.auth | default dict -}}
+{{- $type := $auth.type | default "" -}}
+{{- if not (has $type (list "none" "token")) -}}
+{{- fail "gitPod.auth.type must be none or token" -}}
+{{- end -}}
+{{- if eq $type "token" -}}
+{{- if not $auth.existingSecret -}}
+{{- fail "gitPod.auth.existingSecret is required when gitPod.auth.type is token" -}}
+{{- end -}}
+{{- $keys := $auth.token | default dict -}}
+{{- if not $keys.usernameKey -}}
+{{- fail "gitPod.auth.token.usernameKey is required when gitPod.auth.type is token" -}}
+{{- end -}}
+{{- if not $keys.tokenKey -}}
+{{- fail "gitPod.auth.token.tokenKey is required when gitPod.auth.type is token" -}}
+{{- end -}}
+{{- else if $auth.existingSecret -}}
+{{- fail "gitPod.auth.existingSecret must be empty when gitPod.auth.type is none" -}}
+{{- end -}}
+{{- $type -}}
+{{- end }}
+
+{{/*
+gitPod.env names the chart sets or relies on. A reserved name fails the render (it used to be
+dropped silently) so an operator is never left believing a setting is active.
+*/}}
+{{- define "oolong.requireGitPodEnvNotReserved" -}}
+{{- $exact := list "GIT_REPO_URL" "GIT_BRANCH" "GIT_REPO_HOST_ALLOWLIST" "REVISION_RETENTION_COUNT" "CONTENT_DIR" "SYNC_INTERVAL" "HOME" "GIT_CURL_VERBOSE" "GIT_CONFIG" "GIT_CONFIG_COUNT" "GIT_CONFIG_PARAMETERS" "GIT_CONFIG_GLOBAL" "GIT_CONFIG_SYSTEM" "GIT_CONFIG_NOSYSTEM" "GIT_ASKPASS" "SSH_ASKPASS" "SSH_ASKPASS_REQUIRE" "GIT_TERMINAL_PROMPT" "GIT_ALLOW_PROTOCOL" "GIT_SSL_NO_VERIFY" "GIT_SSH" "GIT_SSH_COMMAND" -}}
+{{- $prefixes := list "GIT_TRACE" "GIT_CONFIG_KEY_" "GIT_CONFIG_VALUE_" "OOLONG_GIT_" -}}
+{{- range $name, $_ := .Values.gitPod.env -}}
+{{- $reserved := has $name $exact -}}
+{{- range $prefixes -}}
+{{- if hasPrefix . $name -}}
+{{- $reserved = true -}}
+{{- end -}}
+{{- end -}}
+{{- if $reserved -}}
+{{- fail (printf "gitPod.env.%s is set by the chart and cannot be overridden" $name) -}}
+{{- end -}}
+{{- end -}}
 {{- end }}
 
 {{/*

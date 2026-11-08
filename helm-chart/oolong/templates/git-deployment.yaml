@@ -1,5 +1,7 @@
 {{- if and .Values.gitPod.enabled .Values.persistence.enabled }}
 {{- include "oolong.requireGitRepoUrl" . }}
+{{- include "oolong.requireGitPodEnvNotReserved" . }}
+{{- $gitAuthType := include "oolong.gitAuthType" . }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -44,11 +46,11 @@ spec:
           {{- end }}
           env:
             {{- range $key, $value := .Values.gitPod.env }}
-            {{- if not (has $key (list "GIT_REPO_URL" "GIT_BRANCH" "GIT_REPO_HOST_ALLOWLIST" "REVISION_RETENTION_COUNT" "CONTENT_DIR" "SYNC_INTERVAL" "HOME")) }}
             - name: {{ $key }}
               value: {{ $value | quote }}
             {{- end }}
-            {{- end }}
+            - name: OOLONG_GIT_AUTH_TYPE
+              value: {{ $gitAuthType | quote }}
             - name: HOME
               value: "/tmp/git-home"
             - name: GIT_REPO_URL
@@ -71,6 +73,11 @@ spec:
               readOnly: true
             - name: git-home
               mountPath: /tmp/git-home
+            {{- if eq $gitAuthType "token" }}
+            - name: git-auth
+              mountPath: /etc/oolong-git-auth
+              readOnly: true
+            {{- end }}
       volumes:
         - name: oolong-content
           persistentVolumeClaim:
@@ -81,6 +88,18 @@ spec:
             defaultMode: 0700
         - name: git-home
           emptyDir: {}
+        {{- if eq $gitAuthType "token" }}
+        - name: git-auth
+          secret:
+            secretName: {{ .Values.gitPod.auth.existingSecret | quote }}
+            defaultMode: 0440
+            optional: false
+            items:
+              - key: {{ .Values.gitPod.auth.token.usernameKey | quote }}
+                path: username
+              - key: {{ .Values.gitPod.auth.token.tokenKey | quote }}
+                path: token
+        {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
