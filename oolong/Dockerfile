@@ -1,24 +1,26 @@
-FROM node:24.10.0-alpine3.22@sha256:775ba24d35a13e74dedce1d2af4ad510337b68d8e22be89e0ce2ccc299329083 AS builder
+FROM node:24.22.1-alpine3.24@sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53 AS builder
 WORKDIR /app
 COPY oolong-server/package*.json ./
 RUN npm ci --ignore-scripts
 COPY oolong-server/ ./
 RUN npm run build
 
-FROM node:24.10.0-alpine3.22@sha256:775ba24d35a13e74dedce1d2af4ad510337b68d8e22be89e0ce2ccc299329083 AS package
+FROM node:24.22.1-alpine3.24@sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53 AS package
 ARG CI_ENV=noci
 ARG GIT_COMMIT=git_commit_undefined
 ARG GIT_BRANCH=git_branch_undefined
 ARG VERSION=not_versioned
 
-RUN mkdir /app && echo "version=$VERSION" > /app/version && echo "commit=$GIT_COMMIT" >> /app/version \
+RUN apk upgrade --no-cache && mkdir /app && echo "version=$VERSION" > /app/version && echo "commit=$GIT_COMMIT" >> /app/version \
     && echo "branch=$GIT_BRANCH" >> /app/version && addgroup -g 10001 -S apprunner && adduser -u 10001 -S apprunner -G apprunner \
     && chown apprunner:apprunner -R /app
 
 WORKDIR /app
 
 COPY --chown=apprunner:apprunner oolong-server/package*.json ./
-RUN npm ci --omit=dev --ignore-scripts
+RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force \
+    && rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
+       /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack /opt/yarn* /usr/local/bin/yarn /usr/local/bin/yarnpkg
 COPY --from=builder --chown=apprunner:apprunner /app/dist ./dist
 COPY --chown=apprunner:apprunner fixtures/tea-1.0.0 ./src/content
 COPY --chown=apprunner:apprunner docker/tea-ready.js ./tea-ready.js

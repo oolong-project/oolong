@@ -26,27 +26,31 @@ function git(cwd: string, ...args: string[]): void {
 }
 
 function publish(contentDir: string, workDir: string): void {
+  // Paths go in through the environment, not the command line, so the shell
+  // script stays a constant string.
   execFileSync(
     'sh',
     [
       '-c',
       `
 set -e
-CONTENT_DIR="$1"
-WORK_DIR="$2"
 REVISIONS_DIR="$CONTENT_DIR/revisions"
 POINTER_FILE="$CONTENT_DIR/.oolong-current-revision"
 REVISION_RETENTION_COUNT=5
 mkdir -p "$REVISIONS_DIR"
-. "$3"
+. "$PUBLISH_INC"
 publish_revision
 `,
-      'publish',
-      contentDir,
-      workDir,
-      PUBLISH_INC,
     ],
-    { encoding: 'utf8' },
+    {
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        CONTENT_DIR: contentDir,
+        WORK_DIR: workDir,
+        PUBLISH_INC,
+      },
+    },
   );
 }
 

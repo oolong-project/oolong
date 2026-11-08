@@ -71,6 +71,11 @@
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node",
-    "setupFiles": ["<rootDir>/../test/jest-env.ts"]
+    "setupFiles": [
+      "<rootDir>/../test/jest-env.ts"
+    ]
+  },
+  "overrides": {
+    "multer": "2.5.0"
   }
 }
