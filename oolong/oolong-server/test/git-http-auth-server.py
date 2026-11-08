@@ -12,7 +12,8 @@ Modes:
   auth-redirect  answers a request without the correct Basic credentials with 401 and each
                  request with them with a 302 to <target><path>
 
-The credentials are made-up test data.
+The credentials are made-up test data. A deployment that is reachable from outside sets
+TEST_GIT_USER and TEST_GIT_TOKEN to its own throwaway values instead.
 """
 import argparse
 import base64
@@ -21,7 +22,10 @@ import os
 import subprocess
 import sys
 
-EXPECTED = "Basic " + base64.b64encode(b"tester:not-a-real-token-0001").decode("ascii")
+EXPECTED = "Basic " + base64.b64encode(
+    ("%s:%s" % (os.environ.get("TEST_GIT_USER", "tester"),
+                os.environ.get("TEST_GIT_TOKEN", "not-a-real-token-0001"))).encode("utf-8")
+).decode("ascii")
 
 
 class Handler(http.server.BaseHTTPRequestHandler):
@@ -124,13 +128,15 @@ def main():
     parser.add_argument("--port-file", required=True)
     parser.add_argument("--repo-root")
     parser.add_argument("--target")
+    parser.add_argument("--bind", default="127.0.0.1")
+    parser.add_argument("--port", type=int, default=0)
     args = parser.parse_args()
     if args.mode == "backend" and not args.repo_root:
         parser.error("--repo-root is required for backend mode")
     if args.mode != "backend" and not args.target:
         parser.error("--target is required for redirect modes")
 
-    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    server = http.server.ThreadingHTTPServer((args.bind, args.port), Handler)
     server.mode = args.mode
     server.log_path = args.log
     server.repo_root = args.repo_root
