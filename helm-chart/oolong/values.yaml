@@ -4,10 +4,7 @@
 
 replicaCount: 1
 
-# Required. The published 25.10.6 image does not implement /healthz or git
-# snapshot reload. Set a build from this branch, for example oolong-server:local.
-# Leave empty to fail helm install/upgrade until an explicit compatible image is set.
-image: ""
+image: registry.rearmhq.com/library/oolong-server:26.11.0@sha256:07bc20ad98ff6700fcc1a72695cb183bfb71300a910786b7a5244558a90eeb4d
 
 imagePullSecrets: []
 nameOverride: ""
@@ -59,7 +56,7 @@ persistence:
 # Git pod configuration
 gitPod:
   enabled: false
-  image: alpine/git:2.49.1@sha256:94b40c2135951103e0c5c7db07ae4cf6e935644a717e05d17f0c540db47683af
+  image: alpine/git:2.54.1@sha256:6a1fdb962814ca11508ca8d1bab94375b5b7ac4e4a9a40981c29fc32c02f095d
   imagePullPolicy: IfNotPresent
   # Mount path for the shared volume
   mountPath: /content
