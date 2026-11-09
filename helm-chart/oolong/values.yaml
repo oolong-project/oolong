@@ -69,10 +69,12 @@ gitPod:
     #   cpu: 50m
     #   memory: 64Mi
   # Git repository configuration
-  # https:// Git URL without credentials (required when gitPod.enabled is true).
-  # For a private repository set gitPod.auth; never put a user name or token in the URL.
+  # https:// Git URL without credentials, or for auth.type ssh an
+  # ssh://[user@]host[:port]/path or [user@]host:path URL (required when gitPod.enabled is true).
+  # Never put a password or token in the URL.
   repoUrl: ""
-  # Optional exact-match hostname allowlist. Empty allows any https host.
+  # Optional exact-match hostname allowlist. Empty allows any host.
+  # For ssh URLs the host is the part after user@ and before :port or :path.
   # Hostname checks do not follow DNS changes or Git redirects; restrict
   # Git-pod egress with a NetworkPolicy or cluster egress control.
   allowedHosts: []
@@ -96,16 +98,25 @@ gitPod:
   # Credentials for a private repository. type is one of:
   #   none  - anonymous clone (default)
   #   token - HTTPS username + token read from an existing Secret
-  # (ssh is reserved for SSH deploy keys, OOL-2.)
+  #   ssh   - SSH deploy key read from an existing Secret; host keys always verified
   auth:
     type: none
     # Name of an existing Secret in the release namespace. Required when type
-    # is not none; must be empty when type is none. The chart never creates it.
+    # is token or ssh; must be empty when type is none. The chart never creates it.
     existingSecret: ""
     token:
       # Keys in existingSecret holding the HTTPS username and the token.
       usernameKey: username
       tokenKey: token
+    ssh:
+      # Key in existingSecret holding the unencrypted private key (OpenSSH or PEM).
+      # ssh-privatekey matches the kubernetes.io/ssh-auth Secret type.
+      privateKeyKey: ssh-privatekey
+      # known_hosts for the Git host is required: set exactly one of these two.
+      # knownHostsKey: key in existingSecret holding known_hosts lines.
+      knownHostsKey: ""
+      # knownHosts: known_hosts lines inline (public data; use --set-file or a values file).
+      knownHosts: ""
 
 # Pagination token HMAC key (required unless PAGE_TOKEN_DEV_FALLBACK=true and
 # NODE_ENV is not production). The chart never sets that opt-in.

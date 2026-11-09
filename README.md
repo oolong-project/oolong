@@ -154,15 +154,19 @@ Do not install the published `0.0.7` chart / `25.10.6` image for this branch. Us
 
 ### Git Pod Configuration
 
-Enable automatic Git synchronization to populate content from an HTTPS Git repository, public or private (see Private repositories). The Git pod uses `Recreate` and a `flock` on the shared volume so an upgrade does not run two publishers against the same checkout. The lock is held by the publishing process and is released when that process exits. It rolls when the rendered Git ConfigMap changes (`checksum/git-script`). The server keeps serving its accepted snapshot while the Git pod restarts.
+Enable automatic Git synchronization to populate content from a Git repository over HTTPS (public, or private with a token) or SSH (private, with a deploy key); see Private repositories. The Git pod uses `Recreate` and a `flock` on the shared volume so an upgrade does not run two publishers against the same checkout. The lock is held by the publishing process and is released when that process exits. It rolls when the rendered Git ConfigMap changes (`checksum/git-script`). The server keeps serving its accepted snapshot while the Git pod restarts.
 
-`gitPod.repoUrl` must be `https://` with no userinfo. The Git pod disables `git://`, `ssh://`, `http://`, and `file://`. Optional `gitPod.allowedHosts` is an exact hostname allowlist. Hostname checks do not follow DNS changes or Git redirects; apply a NetworkPolicy or cluster egress control so the Git pod cannot reach internal or metadata destinations.
+`gitPod.repoUrl` is `https://` with no userinfo, or with `gitPod.auth.type=ssh` an `ssh://[user@]host[:port]/path` or `[user@]host:path` URL. The Git pod always disables `git://`, `http://`, `file://` and `ext::`, and disables `ssh` unless the type is `ssh`. Optional `gitPod.allowedHosts` is an exact hostname allowlist for both URL kinds (for an ssh URL, the host after `user@` and before `:port` or `:path`); it is checked when the chart renders and again when the pod starts. Hostname checks do not follow DNS changes or Git redirects; apply a NetworkPolicy or cluster egress control so the Git pod cannot reach internal or metadata destinations.
 
 `gitPod.revisionRetentionCount` is an integer from 1 to 1000 (`values.schema.json`). Helm passes it as the `REVISION_RETENTION_COUNT` environment variable. The Git script validates the value and never interpolates Helm values into shell text.
 
 #### Private repositories
 
-To sync a private repository over HTTPS, create a Secret in the release namespace with the user name and the token as two keys, from files or a secret manager, not from a literal on the command line (a literal lands in your shell history):
+There are two ways to sync a private repository; pick one with `gitPod.auth.type`.
+
+##### HTTPS token
+
+To sync over HTTPS, create a Secret in the release namespace with the user name and the token as two keys, from files or a secret manager, not from a literal on the command line (a literal lands in your shell history):
 
 ```bash
 kubectl -n oolong create secret generic oolong-git-auth \
@@ -179,7 +183,22 @@ Which user name goes with the token, per provider. Scope the token to read-only 
 
 The Secret is mounted as files in `/etc/oolong-git-auth` and read by a credential helper that git runs only for the host of `gitPod.repoUrl`. The token is never in the URL, a command line, an environment variable, `.git/config` or a published revision. A rotated Secret is picked up on a later sync without a restart (kubelet refreshes the mount, typically within about a minute). The files are readable through the pod's `fsGroup`; if you remove `podSecurityContext.fsGroup`, the Git pod fails at start-up and names the unreadable file.
 
-Two render-time refusals protect against leaks. A `gitPod.repoUrl` that contains `@` fails the render, so a token is never written into the URL. `gitPod.env` names that the chart sets or that would override or expose the credential wiring (`GIT_CONFIG_COUNT`, `GIT_ASKPASS`, `GIT_TRACE*`, `GIT_SSL_NO_VERIFY`, `GIT_ALLOW_PROTOCOL` and others) now fail the render with the name; before, seven of them were dropped silently.
+##### SSH deploy key
+
+Create a read-only deploy key for the one repository, without a passphrase (GitHub and GitLab deploy keys are read-only by default; Bitbucket access keys are read-only). Put the private key and the host's `known_hosts` lines in a Secret from files:
+
+```bash
+kubectl -n oolong create secret generic oolong-git-ssh \
+  --from-file=ssh-privatekey=./deploy_key --from-file=known_hosts=./known_hosts
+```
+
+Then set `gitPod.auth.type=ssh`, `gitPod.auth.existingSecret=oolong-git-ssh` and exactly one known_hosts source: `gitPod.auth.ssh.knownHostsKey=known_hosts` (a key in that Secret) or `--set-file gitPod.auth.ssh.knownHosts=./known_hosts` (inline, public data). The chart never creates the Secret, and the render fails without a known_hosts source. Use `ssh://[user@]host[:port]/path` (needed for a non-standard port) or `[user@]host:path` for `gitPod.repoUrl`; the user is usually `git`.
+
+Get the known_hosts lines from the provider's published host keys, or from `ssh-keyscan` only after you compare the `ssh-keygen -lf` fingerprints with the provider's published ones. Host keys are always verified (`StrictHostKeyChecking=yes` against your known_hosts only); ssh never adds a key, and the deploy key is never offered to a host whose key does not match.
+
+The key is copied into an in-memory volume with mode 0600 before every sync, so a rotated Secret is used on a later sync without a restart. The pod never offers an agent or default identity, and no prompt can block a sync. The Git pod needs egress to the SSH port of the host. The chart also mounts a two-line `/etc/passwd` for the Git pod's uid, because ssh refuses to run for a uid with no passwd entry. Only a passwordless URL is accepted: `user:secret@` is refused.
+
+Two render-time refusals protect against leaks. For `none` and `token`, a `gitPod.repoUrl` that contains `@` fails the render, so a token is never written into the URL; with `ssh` a user name is allowed and a password-shaped `user:secret@` is refused. `gitPod.env` names that the chart sets or that would override or expose the credential wiring (`GIT_CONFIG_COUNT`, `GIT_ASKPASS`, `GIT_TRACE*`, `GIT_SSL_NO_VERIFY`, `GIT_ALLOW_PROTOCOL`, `GIT_SSH`, `GIT_SSH_COMMAND`, `GIT_SSH_VARIANT` and others) now fail the render with the name; before, seven of them were dropped silently.
 
 Server pods are labeled `app.kubernetes.io/component=server` and Git pods `app.kubernetes.io/component=git`, so `kubectl logs deploy/<release>` no longer selects both. Those Deployment selectors are immutable: if an upgrade from an older chart fails, delete the two Deployments (keep the PVC) and run `helm upgrade` again.
 
@@ -194,11 +213,13 @@ helm upgrade --install --create-namespace -n oolong oolong helm-chart/oolong \
 
 **Configuration options:**
 - `gitPod.enabled` - Enable/disable Git pod (default: `false`)
-- `gitPod.repoUrl` - `https://` Git URL without credentials (required when enabled)
-- `gitPod.auth.type` - `none` (anonymous clone, default) or `token` (see Private repositories)
-- `gitPod.auth.existingSecret` - Name of an existing Secret holding the user name and token (required for `token`, empty for `none`)
+- `gitPod.repoUrl` - `https://` Git URL without credentials, or with `gitPod.auth.type=ssh` an `ssh://[user@]host[:port]/path` or `[user@]host:path` URL (required when enabled)
+- `gitPod.auth.type` - `none` (anonymous clone, default), `token` or `ssh` (see Private repositories)
+- `gitPod.auth.existingSecret` - Name of an existing Secret holding the user name and token (required for `token` and `ssh`, empty for `none`)
 - `gitPod.auth.token.usernameKey` - Key in that Secret holding the user name (default: `username`)
 - `gitPod.auth.token.tokenKey` - Key in that Secret holding the token (default: `token`)
+- `gitPod.auth.ssh.privateKeyKey` - Key in that Secret holding the unencrypted private key (default: `ssh-privatekey`)
+- `gitPod.auth.ssh.knownHostsKey` / `gitPod.auth.ssh.knownHosts` - Where the known_hosts lines come from: a key in that Secret, or inline; exactly one is required for `ssh`
 - `gitPod.allowedHosts` - Optional exact hostname allowlist (default: empty)
 - `gitPod.branch` - Git branch to sync (default: `main`)
 - `gitPod.syncInterval` - Sync interval in seconds (default: `60`)

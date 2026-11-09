@@ -357,13 +357,13 @@ printf '%s' "$TOKEN" > "$AUTH_DIR/token"
   configure_git_auth "$HELPER" "$AUTH_DIR")
 
 echo "test 10: auth type validation"
-for _type in "" ssh Token; do
+for _type in "" SSH Ssh; do
   if (OOLONG_GIT_AUTH_TYPE="$_type" GIT_REPO_URL="http://localhost:1/repo.git" \
       configure_git_auth "$HELPER" "$AUTH_DIR" > "$ROOT/out10" 2>&1); then
     echo "ASSERT FAILED: configure_git_auth accepted auth type '$_type'"
     exit 1
   fi
-  assert_contains "$ROOT/out10" "OOLONG_GIT_AUTH_TYPE must be none or token"
+  assert_contains "$ROOT/out10" "OOLONG_GIT_AUTH_TYPE must be none, token or ssh"
 done
 
 echo "test 11: path validation happens before any configuration is exported"
