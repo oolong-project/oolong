@@ -47,7 +47,7 @@ data:
     . /scripts/git-publish.inc.sh
 
     validate_git_repo_url || exit 1
-    configure_git_auth /scripts/git-credential-oolong.sh /etc/oolong-git-auth || exit 1
+    configure_git_auth /scripts/git-credential-oolong.sh /etc/oolong-git-auth /tmp/oolong-git-ssh || exit 1
 
     echo "Configuration:"
     echo "  Repository: $GIT_REPO_URL"
@@ -61,7 +61,11 @@ data:
     git config --global --add safe.directory "$WORK_DIR"
     git config --global protocol.file.allow never
     git config --global protocol.git.allow never
-    git config --global protocol.ssh.allow never
+    if [ "$OOLONG_GIT_AUTH_TYPE" = ssh ]; then
+      git config --global protocol.ssh.allow always
+    else
+      git config --global protocol.ssh.allow never
+    fi
     git config --global protocol.ext.allow never
     git config --global protocol.http.allow never
 
@@ -83,4 +87,21 @@ data:
 {{ .Files.Get "scripts/git-publish.inc.sh" | nindent 4 }}
   git-credential-oolong.sh: |
 {{ .Files.Get "scripts/git-credential-oolong.sh" | nindent 4 }}
+{{- if eq (include "oolong.gitAuthType" .) "ssh" }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "oolong.fullname" . }}-git-ssh
+  labels:
+    {{- include "oolong.labels" . | nindent 4 }}
+    app.kubernetes.io/component: git
+data:
+  passwd: |
+    root:x:0:0:root:/root:/sbin/nologin
+    oolong-git:x:{{ include "oolong.gitSshUid" . }}:{{ include "oolong.gitSshGid" . }}:oolong git sync:/tmp/git-home:/sbin/nologin
+  {{- if .Values.gitPod.auth.ssh.knownHosts }}
+  known_hosts: {{ .Values.gitPod.auth.ssh.knownHosts | toJson }}
+  {{- end }}
+{{- end }}
 {{- end }}

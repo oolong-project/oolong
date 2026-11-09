@@ -73,9 +73,17 @@ spec:
               readOnly: true
             - name: git-home
               mountPath: /tmp/git-home
-            {{- if eq $gitAuthType "token" }}
+            {{- if or (eq $gitAuthType "token") (eq $gitAuthType "ssh") }}
             - name: git-auth
               mountPath: /etc/oolong-git-auth
+              readOnly: true
+            {{- end }}
+            {{- if eq $gitAuthType "ssh" }}
+            - name: git-ssh
+              mountPath: /tmp/oolong-git-ssh
+            - name: git-passwd
+              mountPath: /etc/passwd
+              subPath: passwd
               readOnly: true
             {{- end }}
       volumes:
@@ -99,6 +107,40 @@ spec:
                 path: username
               - key: {{ .Values.gitPod.auth.token.tokenKey | quote }}
                 path: token
+        {{- else if eq $gitAuthType "ssh" }}
+        {{- $ssh := .Values.gitPod.auth.ssh }}
+        - name: git-auth
+          projected:
+            defaultMode: 0440
+            sources:
+              - secret:
+                  name: {{ .Values.gitPod.auth.existingSecret | quote }}
+                  optional: false
+                  items:
+                    - key: {{ $ssh.privateKeyKey | quote }}
+                      path: identity
+                    {{- if $ssh.knownHostsKey }}
+                    - key: {{ $ssh.knownHostsKey | quote }}
+                      path: known_hosts
+                    {{- end }}
+              {{- if $ssh.knownHosts }}
+              - configMap:
+                  name: {{ include "oolong.fullname" . }}-git-ssh
+                  items:
+                    - key: known_hosts
+                      path: known_hosts
+              {{- end }}
+        - name: git-ssh
+          emptyDir:
+            medium: Memory
+            sizeLimit: 1Mi
+        - name: git-passwd
+          configMap:
+            name: {{ include "oolong.fullname" . }}-git-ssh
+            defaultMode: 0444
+            items:
+              - key: passwd
+                path: passwd
         {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:

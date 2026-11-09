@@ -20,9 +20,11 @@ The server uses the bundled fixtures baked into the image at /app/src/content.
 {{- end }}
 
 {{- if and .Values.gitPod.enabled .Values.persistence.enabled }}
-Git sync accepts only https:// remotes. Optional gitPod.allowedHosts is an exact hostname allowlist. Restrict Git-pod egress (NetworkPolicy or cluster egress) so internal and metadata destinations stay unreachable; hostname checks do not follow DNS changes or Git redirects.
+Git sync accepts https:// remotes, and ssh remotes when gitPod.auth.type is ssh. Optional gitPod.allowedHosts is an exact hostname allowlist. Restrict Git-pod egress (NetworkPolicy or cluster egress) so internal and metadata destinations stay unreachable; hostname checks do not follow DNS changes or Git redirects.
 {{- if eq .Values.gitPod.auth.type "token" }}
 Git auth is token: Secret {{ .Values.gitPod.auth.existingSecret }} must exist in this namespace with the keys {{ .Values.gitPod.auth.token.usernameKey }} and {{ .Values.gitPod.auth.token.tokenKey }}. A rotated Secret is picked up without a restart. Use a read-only token scoped to the one repository.
+{{- else if eq .Values.gitPod.auth.type "ssh" }}
+Git auth is ssh: Secret {{ .Values.gitPod.auth.existingSecret }} must exist in this namespace with the key {{ .Values.gitPod.auth.ssh.privateKeyKey }}{{ if .Values.gitPod.auth.ssh.knownHostsKey }} and {{ .Values.gitPod.auth.ssh.knownHostsKey }}{{ end }}. Host keys are always verified against the known_hosts you supplied. Use a read-only deploy key for the one repository. A rotated Secret is picked up on a later sync without a restart.
 {{- end }}
 {{- end }}
 {{- if .Values.useTraefikLe }}

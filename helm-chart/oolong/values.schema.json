@@ -20,15 +20,14 @@
         },
         "repoUrl": {
           "type": "string",
-          "maxLength": 2048,
-          "not": { "pattern": "@" }
+          "maxLength": 2048
         },
         "auth": {
           "type": "object",
           "additionalProperties": false,
           "required": ["type"],
           "properties": {
-            "type": { "type": "string", "enum": ["none", "token"] },
+            "type": { "type": "string", "enum": ["none", "token", "ssh"] },
             "existingSecret": {
               "type": "string",
               "maxLength": 253,
@@ -42,6 +41,15 @@
                 "usernameKey": { "type": "string", "minLength": 1, "maxLength": 253, "pattern": "^[-._a-zA-Z0-9]+$" },
                 "tokenKey": { "type": "string", "minLength": 1, "maxLength": 253, "pattern": "^[-._a-zA-Z0-9]+$" }
               }
+            },
+            "ssh": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "privateKeyKey": { "type": "string", "maxLength": 253, "pattern": "^([-._a-zA-Z0-9]+)?$" },
+                "knownHostsKey": { "type": "string", "maxLength": 253, "pattern": "^([-._a-zA-Z0-9]+)?$" },
+                "knownHosts": { "type": "string", "maxLength": 65536, "not": { "pattern": "PRIVATE KEY" } }
+              }
             }
           },
           "allOf": [
@@ -53,12 +61,51 @@
               }
             },
             {
+              "if": { "properties": { "type": { "const": "ssh" } } },
+              "then": {
+                "required": ["existingSecret", "ssh"],
+                "properties": {
+                  "existingSecret": { "minLength": 1 },
+                  "ssh": {
+                    "required": ["privateKeyKey"],
+                    "properties": { "privateKeyKey": { "minLength": 1 } },
+                    "oneOf": [
+                      {
+                        "required": ["knownHostsKey"],
+                        "properties": { "knownHostsKey": { "minLength": 1 }, "knownHosts": { "maxLength": 0 } }
+                      },
+                      {
+                        "required": ["knownHosts"],
+                        "properties": { "knownHosts": { "minLength": 1 }, "knownHostsKey": { "maxLength": 0 } }
+                      }
+                    ]
+                  }
+                }
+              }
+            },
+            {
               "if": { "properties": { "type": { "const": "none" } } },
               "then": { "properties": { "existingSecret": { "maxLength": 0 } } }
             }
           ]
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": ["auth"],
+            "properties": { "auth": { "required": ["type"], "properties": { "type": { "const": "ssh" } } } }
+          },
+          "then": {
+            "properties": {
+              "repoUrl": { "not": { "pattern": "^([A-Za-z][A-Za-z0-9+.-]*://)?[^/@]*:[^/@]*@" } }
+            }
+          },
+          "else": {
+            "properties": { "repoUrl": { "not": { "pattern": "@" } } }
+          }
+        }
+      ]
     }
   }
 }
