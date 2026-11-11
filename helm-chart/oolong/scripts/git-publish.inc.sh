@@ -22,32 +22,182 @@ validate_revision_retention_count() {
   return 0
 }
 
-validate_git_repo_url() {
-  case "$GIT_REPO_URL" in
-    https://*)
+# --- ssh URL grammar (also implemented in templates/_helpers.tpl; keep the two in step) ---
+# Only two forms are accepted, with conservative character sets, so nothing reaches ssh that
+# it could read as an option:
+#   ssh://[user@]host[:port]/path        and        [user@]host:path   (no "://" in it)
+# user [A-Za-z0-9_][A-Za-z0-9._-]*  host [A-Za-z0-9][A-Za-z0-9.-]*  port 1-65535
+# path (URL form) "/" then [A-Za-z0-9._~+/-]+
+# path (scp form) [A-Za-z0-9._~+][A-Za-z0-9._~+/-]*  or  "/" then [A-Za-z0-9._~+-][A-Za-z0-9._~+/-]*
+# Nothing is evaluated. Sets _ssh_user, _ssh_host, _ssh_port and _ssh_known_host (the name ssh
+# looks up in known_hosts: host, or [host]:port for a port other than 22).
+
+ssh_user_ok() {
+  case "$1" in
+    '' | *[!A-Za-z0-9._-]*) return 1 ;;
+  esac
+  case "${1%"${1#?}"}" in
+    [A-Za-z0-9_]) return 0 ;;
+  esac
+  return 1
+}
+
+ssh_host_ok() {
+  case "$1" in
+    '' | *[!A-Za-z0-9.-]*) return 1 ;;
+  esac
+  case "${1%"${1#?}"}" in
+    [A-Za-z0-9]) return 0 ;;
+  esac
+  return 1
+}
+
+# Sets _ssh_port to the port without leading zeros.
+ssh_port_ok() {
+  _p="$1"
+  case "$_p" in
+    '' | *[!0-9]*) return 1 ;;
+  esac
+  [ "${#_p}" -le 5 ] || return 1
+  while [ "${_p#0}" != "$_p" ]; do
+    _p="${_p#0}"
+  done
+  [ -n "$_p" ] || return 1
+  [ "$_p" -ge 1 ] && [ "$_p" -le 65535 ] || return 1
+  _ssh_port="$_p"
+  return 0
+}
+
+ssh_url_path_ok() {
+  case "$1" in
+    '' | *[!A-Za-z0-9._~+/-]*) return 1 ;;
+  esac
+  return 0
+}
+
+ssh_scp_path_ok() {
+  case "$1" in
+    '' | *[!A-Za-z0-9._~+/-]*) return 1 ;;
+    /*)
+      _sp="${1#/}"
+      case "${_sp%"${_sp#?}"}" in
+        [A-Za-z0-9._~+-]) return 0 ;;
+      esac
+      return 1
+      ;;
+  esac
+  case "${1%"${1#?}"}" in
+    [A-Za-z0-9._~+]) return 0 ;;
+  esac
+  return 1
+}
+
+parse_ssh_repo_url() {
+  _ssh_url="$1"
+  _ssh_user=""
+  _ssh_host=""
+  _ssh_port=""
+  _ssh_known_host=""
+  case "$_ssh_url" in
+    ssh://*)
+      _ssh_rest="${_ssh_url#ssh://}"
+      case "$_ssh_rest" in
+        */*) ;;
+        *) return 1 ;;
+      esac
+      _ssh_authority="${_ssh_rest%%/*}"
+      ssh_url_path_ok "${_ssh_rest#*/}" || return 1
+      case "$_ssh_authority" in
+        *@*)
+          _ssh_user="${_ssh_authority%%@*}"
+          _ssh_hostport="${_ssh_authority#*@}"
+          ssh_user_ok "$_ssh_user" || return 1
+          ;;
+        *)
+          _ssh_hostport="$_ssh_authority"
+          ;;
+      esac
+      case "$_ssh_hostport" in
+        *@*) return 1 ;;
+        *:*)
+          _ssh_host="${_ssh_hostport%%:*}"
+          ssh_port_ok "${_ssh_hostport#*:}" || return 1
+          ;;
+        *)
+          _ssh_host="$_ssh_hostport"
+          ;;
+      esac
+      ;;
+    *://*)
+      return 1
+      ;;
+    *:*)
+      _ssh_left="${_ssh_url%%:*}"
+      ssh_scp_path_ok "${_ssh_url#*:}" || return 1
+      case "$_ssh_left" in
+        *@*)
+          _ssh_user="${_ssh_left%%@*}"
+          _ssh_host="${_ssh_left#*@}"
+          ssh_user_ok "$_ssh_user" || return 1
+          ;;
+        *)
+          _ssh_host="$_ssh_left"
+          ;;
+      esac
+      case "$_ssh_host" in
+        *@*) return 1 ;;
+      esac
       ;;
     *)
-      echo "ERROR: GIT_REPO_URL must use https://" >&2
       return 1
       ;;
   esac
-  _rest="${GIT_REPO_URL#https://}"
-  case "$_rest" in
-    *@*)
-      echo "ERROR: GIT_REPO_URL must not include userinfo" >&2
-      return 1
+  ssh_host_ok "$_ssh_host" || return 1
+  if [ -z "$_ssh_port" ] || [ "$_ssh_port" = 22 ]; then
+    _ssh_known_host="$_ssh_host"
+  else
+    _ssh_known_host="[$_ssh_host]:$_ssh_port"
+  fi
+  return 0
+}
+
+validate_git_repo_url() {
+  case "$OOLONG_GIT_AUTH_TYPE" in
+    ssh)
+      if ! parse_ssh_repo_url "$GIT_REPO_URL"; then
+        echo "ERROR: GIT_REPO_URL must be ssh://[user@]host[:port]/path or [user@]host:path for auth type ssh" >&2
+        return 1
+      fi
+      _host="$_ssh_host"
+      ;;
+    *)
+      case "$GIT_REPO_URL" in
+        https://*)
+          ;;
+        *)
+          echo "ERROR: GIT_REPO_URL must use https://" >&2
+          return 1
+          ;;
+      esac
+      _rest="${GIT_REPO_URL#https://}"
+      case "$_rest" in
+        *@*)
+          echo "ERROR: GIT_REPO_URL must not include userinfo" >&2
+          return 1
+          ;;
+      esac
+      _hostport="${_rest%%/*}"
+      if [ -z "$_hostport" ]; then
+        echo "ERROR: GIT_REPO_URL is missing a host" >&2
+        return 1
+      fi
+      _host="${_hostport%%:*}"
+      if [ -z "$_host" ]; then
+        echo "ERROR: GIT_REPO_URL is missing a host" >&2
+        return 1
+      fi
       ;;
   esac
-  _hostport="${_rest%%/*}"
-  if [ -z "$_hostport" ]; then
-    echo "ERROR: GIT_REPO_URL is missing a host" >&2
-    return 1
-  fi
-  _host="${_hostport%%:*}"
-  if [ -z "$_host" ]; then
-    echo "ERROR: GIT_REPO_URL is missing a host" >&2
-    return 1
-  fi
   if [ -n "$GIT_REPO_HOST_ALLOWLIST" ]; then
     _ok=0
     _oldifs="$IFS"
@@ -65,6 +215,179 @@ validate_git_repo_url() {
       return 1
     fi
   fi
+  return 0
+}
+
+# configure_git_auth <helper-script> <auth-dir> [<ssh-dir>]
+# Wires git for OOLONG_GIT_AUTH_TYPE: none, token or ssh. Everything goes through the
+# environment, so no config file holding a secret is written.
+#   token: a credential helper (git 2.31+ GIT_CONFIG_*), offered only to the host of
+#          GIT_REPO_URL.
+#   ssh:   GIT_SSH_COMMAND with strict host key checking against the operator's known_hosts;
+#          the key and known_hosts are copied into <ssh-dir> (mode 0600) by install_ssh_files.
+# Call after validate_git_repo_url.
+configure_git_auth() {
+  _helper="$1"
+  _authdir="$2"
+  _sshdir="${3:-}"
+
+  # Missing or bad credentials fail at once instead of waiting for a terminal while the
+  # publish lock is held.
+  export GIT_TERMINAL_PROMPT=0
+
+  # ssh state is keyed on the auth type: nothing inherited survives into none or token, and a
+  # failed ssh configuration leaves none set.
+  unset OOLONG_GIT_SSH_AUTH_DIR OOLONG_GIT_SSH_DIR OOLONG_GIT_SSH_KNOWN_HOST
+
+  # The paths end up in a git config value or in GIT_SSH_COMMAND, which git runs through a shell.
+  case "$_helper" in
+    '' | *[!A-Za-z0-9/._-]*)
+      echo "ERROR: credential helper path must match [A-Za-z0-9/._-]+" >&2
+      return 1
+      ;;
+  esac
+  case "$_authdir" in
+    '' | *[!A-Za-z0-9/._-]*)
+      echo "ERROR: credential directory path must match [A-Za-z0-9/._-]+" >&2
+      return 1
+      ;;
+  esac
+
+  case "$OOLONG_GIT_AUTH_TYPE" in
+    none)
+      return 0
+      ;;
+    token)
+      ;;
+    ssh)
+      configure_ssh_auth
+      return $?
+      ;;
+    *)
+      echo "ERROR: OOLONG_GIT_AUTH_TYPE must be none, token or ssh" >&2
+      return 1
+      ;;
+  esac
+
+  # The helper is the one reader of the two files; its output is discarded here and its
+  # message names the file that is missing, empty or not a single line.
+  if ! /bin/sh "$_helper" "$_authdir" get < /dev/null > /dev/null; then
+    return 1
+  fi
+
+  case "$GIT_REPO_URL" in
+    *://*)
+      ;;
+    *)
+      echo "ERROR: GIT_REPO_URL has no scheme" >&2
+      return 1
+      ;;
+  esac
+  _scheme="${GIT_REPO_URL%%://*}"
+  _rest="${GIT_REPO_URL#*://}"
+  _hostport="${_rest%%/*}"
+  case "$_hostport" in
+    '' | *@*)
+      echo "ERROR: GIT_REPO_URL has no usable host for credentials" >&2
+      return 1
+      ;;
+  esac
+
+  # The first entry empties credential.helper, which resets every helper from system and
+  # global config (a "store" helper would otherwise write the token to disk).
+  export GIT_CONFIG_COUNT=2
+  export GIT_CONFIG_KEY_0="credential.helper"
+  export GIT_CONFIG_VALUE_0=""
+  export GIT_CONFIG_KEY_1="credential.${_scheme}://${_hostport}.helper"
+  export GIT_CONFIG_VALUE_1="/bin/sh ${_helper} ${_authdir}"
+  return 0
+}
+
+# The ssh half of configure_git_auth (uses _authdir and _sshdir).
+configure_ssh_auth() {
+  case "$_sshdir" in
+    '' | *[!A-Za-z0-9/._-]*)
+      echo "ERROR: ssh directory path must match [A-Za-z0-9/._-]+" >&2
+      return 1
+      ;;
+  esac
+  if ! command -v ssh >/dev/null 2>&1 || ! command -v ssh-keygen >/dev/null 2>&1; then
+    echo "ERROR: ssh and ssh-keygen are required for auth type ssh" >&2
+    return 1
+  fi
+  # -G only prints the resolved configuration: no connection and no DNS lookup. It fails when
+  # the uid has no /etc/passwd entry, which ssh needs.
+  if ! ssh -F /dev/null -G oolong.invalid < /dev/null > /dev/null 2>&1; then
+    echo "ERROR: ssh cannot run as uid $(id -u): it needs an /etc/passwd entry" >&2
+    return 1
+  fi
+  if ! parse_ssh_repo_url "$GIT_REPO_URL"; then
+    echo "ERROR: GIT_REPO_URL must be ssh://[user@]host[:port]/path or [user@]host:path for auth type ssh" >&2
+    return 1
+  fi
+  OOLONG_GIT_SSH_AUTH_DIR="$_authdir"
+  OOLONG_GIT_SSH_DIR="$_sshdir"
+  OOLONG_GIT_SSH_KNOWN_HOST="$_ssh_known_host"
+  if ! install_ssh_files; then
+    unset OOLONG_GIT_SSH_AUTH_DIR OOLONG_GIT_SSH_DIR OOLONG_GIT_SSH_KNOWN_HOST
+    return 1
+  fi
+  # Host keys are never trusted on first use: strict checking against the operator's
+  # known_hosts only (no system or user config, no agent, no other identity, no prompt).
+  export GIT_SSH_VARIANT=ssh
+  export GIT_SSH_COMMAND="ssh -F /dev/null -o BatchMode=yes -o IdentitiesOnly=yes -o IdentityAgent=none -o IdentityFile=${_sshdir}/identity -o StrictHostKeyChecking=yes -o UserKnownHostsFile=${_sshdir}/known_hosts -o GlobalKnownHostsFile=/dev/null -o UpdateHostKeys=no -o PasswordAuthentication=no -o KbdInteractiveAuthentication=no -o ConnectTimeout=30 -o ServerAliveInterval=15 -o ServerAliveCountMax=4"
+  return 0
+}
+
+# Copies the key and known_hosts from the (read-only, group-readable) auth mount into the ssh
+# directory with mode 0600, owned by the running user, and validates the copies. Called by
+# configure_git_auth and before every sync, so a rotated Secret is used on the next sync. A
+# no-op unless the type is ssh; for ssh it fails closed when configure_git_auth did not run.
+# Messages name a file, never its content.
+install_ssh_files() {
+  [ "$OOLONG_GIT_AUTH_TYPE" = ssh ] || return 0
+  if [ -z "${OOLONG_GIT_SSH_AUTH_DIR:-}" ] || [ -z "${OOLONG_GIT_SSH_DIR:-}" ] ||
+     [ -z "${OOLONG_GIT_SSH_KNOWN_HOST:-}" ]; then
+    echo "ERROR: ssh auth is not configured; call configure_git_auth first" >&2
+    return 1
+  fi
+  _isrc="$OOLONG_GIT_SSH_AUTH_DIR"
+  _idst="$OOLONG_GIT_SSH_DIR"
+  for _ifile in identity known_hosts; do
+    if [ ! -f "$_isrc/$_ifile" ] || [ ! -r "$_isrc/$_ifile" ] || [ ! -s "$_isrc/$_ifile" ]; then
+      echo "ERROR: $_isrc/$_ifile is missing or empty" >&2
+      return 1
+    fi
+  done
+  rm -f "$_idst/identity.new" "$_idst/known_hosts.new"
+  # cat and a redirection, not cp -p: the copy belongs to the running user with mode 0600
+  # whoever owns the source. A missing final newline is added (ssh rejects such a key).
+  if ! (
+    umask 077
+    for _ifile in identity known_hosts; do
+      cat "$_isrc/$_ifile" > "$_idst/$_ifile.new" || exit 1
+      if [ -n "$(tail -c 1 "$_isrc/$_ifile")" ]; then
+        printf '\n' >> "$_idst/$_ifile.new" || exit 1
+      fi
+    done
+  ); then
+    rm -f "$_idst/identity.new" "$_idst/known_hosts.new"
+    echo "ERROR: cannot copy the ssh files into $_idst" >&2
+    return 1
+  fi
+  chmod 600 "$_idst/identity.new" "$_idst/known_hosts.new"
+  if ! ssh-keygen -y -P '' -f "$_idst/identity.new" < /dev/null > /dev/null 2>&1; then
+    rm -f "$_idst/identity.new" "$_idst/known_hosts.new"
+    echo "ERROR: $_isrc/identity is not an unencrypted SSH private key" >&2
+    return 1
+  fi
+  if ! ssh-keygen -F "$OOLONG_GIT_SSH_KNOWN_HOST" -f "$_idst/known_hosts.new" > /dev/null 2>&1; then
+    rm -f "$_idst/identity.new" "$_idst/known_hosts.new"
+    echo "ERROR: $_isrc/known_hosts has no entry for $OOLONG_GIT_SSH_KNOWN_HOST" >&2
+    return 1
+  fi
+  mv -f "$_idst/identity.new" "$_idst/identity"
+  mv -f "$_idst/known_hosts.new" "$_idst/known_hosts"
   return 0
 }
 
@@ -112,6 +435,7 @@ release_publish_lock() {
 }
 
 locked_sync_and_publish() {
+  install_ssh_files || return 1
   acquire_publish_lock || return 1
   _status=0
   sync_worktree || _status=$?

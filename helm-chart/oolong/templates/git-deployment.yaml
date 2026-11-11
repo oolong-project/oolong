@@ -1,5 +1,7 @@
 {{- if and .Values.gitPod.enabled .Values.persistence.enabled }}
 {{- include "oolong.requireGitRepoUrl" . }}
+{{- include "oolong.requireGitPodEnvNotReserved" . }}
+{{- $gitAuthType := include "oolong.gitAuthType" . }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -44,11 +46,11 @@ spec:
           {{- end }}
           env:
             {{- range $key, $value := .Values.gitPod.env }}
-            {{- if not (has $key (list "GIT_REPO_URL" "GIT_BRANCH" "GIT_REPO_HOST_ALLOWLIST" "REVISION_RETENTION_COUNT" "CONTENT_DIR" "SYNC_INTERVAL" "HOME")) }}
             - name: {{ $key }}
               value: {{ $value | quote }}
             {{- end }}
-            {{- end }}
+            - name: OOLONG_GIT_AUTH_TYPE
+              value: {{ $gitAuthType | quote }}
             - name: HOME
               value: "/tmp/git-home"
             - name: GIT_REPO_URL
@@ -71,6 +73,19 @@ spec:
               readOnly: true
             - name: git-home
               mountPath: /tmp/git-home
+            {{- if or (eq $gitAuthType "token") (eq $gitAuthType "ssh") }}
+            - name: git-auth
+              mountPath: /etc/oolong-git-auth
+              readOnly: true
+            {{- end }}
+            {{- if eq $gitAuthType "ssh" }}
+            - name: git-ssh
+              mountPath: /tmp/oolong-git-ssh
+            - name: git-passwd
+              mountPath: /etc/passwd
+              subPath: passwd
+              readOnly: true
+            {{- end }}
       volumes:
         - name: oolong-content
           persistentVolumeClaim:
@@ -81,6 +96,52 @@ spec:
             defaultMode: 0700
         - name: git-home
           emptyDir: {}
+        {{- if eq $gitAuthType "token" }}
+        - name: git-auth
+          secret:
+            secretName: {{ .Values.gitPod.auth.existingSecret | quote }}
+            defaultMode: 0440
+            optional: false
+            items:
+              - key: {{ .Values.gitPod.auth.token.usernameKey | quote }}
+                path: username
+              - key: {{ .Values.gitPod.auth.token.tokenKey | quote }}
+                path: token
+        {{- else if eq $gitAuthType "ssh" }}
+        {{- $ssh := .Values.gitPod.auth.ssh }}
+        - name: git-auth
+          projected:
+            defaultMode: 0440
+            sources:
+              - secret:
+                  name: {{ .Values.gitPod.auth.existingSecret | quote }}
+                  optional: false
+                  items:
+                    - key: {{ $ssh.privateKeyKey | quote }}
+                      path: identity
+                    {{- if $ssh.knownHostsKey }}
+                    - key: {{ $ssh.knownHostsKey | quote }}
+                      path: known_hosts
+                    {{- end }}
+              {{- if $ssh.knownHosts }}
+              - configMap:
+                  name: {{ include "oolong.fullname" . }}-git-ssh
+                  items:
+                    - key: known_hosts
+                      path: known_hosts
+              {{- end }}
+        - name: git-ssh
+          emptyDir:
+            medium: Memory
+            sizeLimit: 1Mi
+        - name: git-passwd
+          configMap:
+            name: {{ include "oolong.fullname" . }}-git-ssh
+            defaultMode: 0444
+            items:
+              - key: passwd
+                path: passwd
+        {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

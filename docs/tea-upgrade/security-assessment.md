@@ -82,7 +82,7 @@ Authentication is optional in TEA. A server with no protected objects is not, by
 - Affected: `Dockerfile` lines 15–25. User `apprunner` uid 10001, `USER apprunner`. Helm `values.yaml` lines 16–25 drops all capabilities, `runAsNonRoot`, `runAsUser: 10001`. `readOnlyRootFilesystem: false`. No resource limits (`resources: {}`).
 - Expected: non-root is already correct. A test profile can set a read-only root and a writable content mount. Limits belong on the test profile so a fixture cannot exhaust the machine.
 - Image reference in Helm is `registry.relizahub.com/library/oolong-server:25.10.6@sha256:23718baf...` (`values.yaml` line 7). This audit did not pull it.
-- Git pod (`values.yaml` lines 57–84) clones a public git URL into the content volume when enabled. Default `enabled: false`. An enabled repo is the content trust boundary (SEC-02).
+- Git pod (`values.yaml` lines 57-84) clones a public git URL, or with `gitPod.auth.type: token` a private one with a token read from a mounted Secret through a host-scoped credential helper, or with `gitPod.auth.type: ssh` a private one with a deploy key from a mounted Secret and host keys verified against a required known_hosts (`StrictHostKeyChecking=yes`), into the content volume when enabled. The token is never in the URL, `.git/config`, the PVC or a published revision. Default `enabled: false`. An enabled repo is the content trust boundary (SEC-02).
 
 ## SEC-09 — legacy artifact filename
 
@@ -94,7 +94,7 @@ Authentication is optional in TEA. A server with no protected objects is not, by
 
 ## Secrets
 
-No `.env` is committed. `.env.example` has no secrets. Tokens are not implemented, so they are not logged. Do not add a default API key.
+No `.env` is committed. `.env.example` has no secrets. Tokens are not implemented in the server, so they are not logged. The Git pod's optional HTTPS token comes from an operator-created Secret mounted as files, is read only by a credential helper scoped to the repository host, and is never in a URL, command line, environment variable, `.git/config`, the content volume or a log. The optional SSH key is copied only into an in-memory volume with mode 0600 and is never in values, a URL, an environment variable, the content volume or a log. Do not add a default API key.
 
 ## Dependency review
 
