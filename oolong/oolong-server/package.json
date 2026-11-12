@@ -76,6 +76,9 @@
     ]
   },
   "overrides": {
-    "multer": "2.5.0"
+    "multer": "2.5.0",
+    "@nestjs/cli": {
+      "webpack": "5.112.2"
+    }
   }
 }
