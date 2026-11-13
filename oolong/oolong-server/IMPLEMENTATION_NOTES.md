@@ -144,8 +144,10 @@ SSH with a deploy key; see the README's Helm section.
   - `/.well-known/tea` stays outside that prefix and lists `1.0.0` without a leading `v`
 - **`CONTENT_DIR`** - Filesystem content root. Defaults to `../fixtures/tea-1.0.0` from the server working directory
 - **`CONTENT_GIT_SYNC_ENABLED`** - `true` when a Git pod publishes revisions under `CONTENT_DIR`; turns on polling (60 s by default)
-- **`CONTENT_RELOAD_INTERVAL_MS`** - Polling interval for new revisions, in milliseconds (positive integer). Set by the Helm chart when the Git pod is enabled
+- **`CONTENT_RELOAD_INTERVAL_MS`** - Polling interval for new revisions, in milliseconds (positive integer)
 - **`CONTENT_AWAIT_GIT_REVISION`** - `true` to start without content and wait for the first Git revision (`/.well-known/tea` returns `503` until then) instead of loading `CONTENT_DIR` as static content
+
+The Helm chart sets `CONTENT_GIT_SYNC_ENABLED=true`, `CONTENT_AWAIT_GIT_REVISION=true` and `CONTENT_RELOAD_INTERVAL_MS` (`gitPod.contentReloadIntervalMs`, default 60000) when both `gitPod.enabled` and `persistence.enabled` are on.
 - **`PAGE_TOKEN_SECRET`** - HMAC key for pagination tokens. Required unless `PAGE_TOKEN_DEV_FALLBACK=true` and `NODE_ENV` is not `production`. The known development key is never used in deployment configurations. The value is never logged.
 - **`PAGE_TOKEN_DEV_FALLBACK`** - Set to `true` only for local development and tests. Ignored when `NODE_ENV=production`.
 - **`SERVER_HOST`** (default: `http://localhost:3000`) - Public URL for the TEA API
