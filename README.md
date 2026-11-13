@@ -48,9 +48,9 @@ Slides available [here](https://www.slideshare.net/slideshow/open-source-securit
 
 We provided  `oolong/sample_content/` directory for development and testing purposes. 
 
-Oolong uses `oolong/oolong-server/src/content/` directory to serve TEA content (this is under .gitignore). You can copy the content from `oolong/sample_content/` to `oolong/oolong-server/src/content/` directory directly when running via npm.
+Oolong serves the TEA content found under `CONTENT_DIR`. When running via npm from `oolong/oolong-server/` without `CONTENT_DIR`, it serves the test fixtures in `oolong/fixtures/tea-1.0.0/`; set `CONTENT_DIR=../sample_content` (or any other content directory) to serve something else.
 
-The provided Dockerfile will package content from `oolong/content/` directory. This way the content will be baked into the container image.
+The provided Dockerfile bakes the content of `oolong/fixtures/tea-1.0.0/` into the container image at `/app/src/content`. To serve your own content from the image, mount it over that path.
 
 Alternatively, you can mount the content with docker-compose or using git pod in the helm chart installation. If using git pod option, the content will be synchronized with the git repository at the specified interval.
 
