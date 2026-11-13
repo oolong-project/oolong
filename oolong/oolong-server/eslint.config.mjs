@@ -8,10 +8,6 @@ export default tseslint.config(
   {
     ignores: [
       'eslint.config.mjs',
-      'src/generated-nest/**',
-      'src/handlers/**',
-      'src/utils/**',
-      'src/controllers/**',
     ],
   },
   eslint.configs.recommended,

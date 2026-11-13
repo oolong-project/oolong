@@ -4,7 +4,7 @@
 
 replicaCount: 1
 
-image: registry.rearmhq.com/library/oolong-server:26.11.0@sha256:07bc20ad98ff6700fcc1a72695cb183bfb71300a910786b7a5244558a90eeb4d
+image: registry.rearmhq.com/library/oolong-server:26.11.2@sha256:50ea6e1bbfe5dddcea81f68a0c9de3b31d5a80128d0c98a7307853b5e7b57ae0
 
 imagePullSecrets: []
 nameOverride: ""

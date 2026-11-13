@@ -1,17 +1,19 @@
 apiVersion: v2
 name: oolong
-description: A Helm chart for Reliza Oolong - a lightweight TEA server implementation
+description: A Helm chart for Oolong - a lightweight Transparency Exchange API (TEA) server
 type: application
 version: 0.1.1
-appVersion: "25.10.5"
+appVersion: "26.11.7"
 keywords:
   - TEA
   - Transparency Exchange API
   - oolong
-  - reliza
-home: https://github.com/relizaio/oolong
+home: https://github.com/oolong-project/oolong
 sources:
-  - https://github.com/relizaio/oolong
+  - https://github.com/oolong-project/oolong
 maintainers:
-  - name: Reliza Incorporated
-    email: support@reliza.io
+  - name: Pavel Shukhman
+    email: pavel.shukhman@owasp.org
+    url: https://github.com/taleodor
+  - name: Matt Rutkowski
+    url: https://github.com/mrutkows

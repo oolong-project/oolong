@@ -1,6 +1,5 @@
 # Dependencies
 oolong-server/node_modules
-oolong-server/src/generated-nest/node_modules
 
 # Git
 .git

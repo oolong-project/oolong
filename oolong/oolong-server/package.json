@@ -1,10 +1,10 @@
 {
   "name": "oolong-server",
   "version": "0.0.1",
-  "description": "",
+  "description": "Oolong server: a lightweight Transparency Exchange API (TEA) 1.0.0 server that serves YAML content",
   "author": "",
   "private": true,
-  "license": "UNLICENSED",
+  "license": "MIT",
   "scripts": {
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",

@@ -27,8 +27,9 @@ echo "test helm lint accepts a compatible image"
 helm lint "$CHART" --set image=oolong-server:local >/dev/null
 
 echo "test published 25.10.6 image is rejected"
+# Only the reference string is checked; the image is never pulled.
 if helm template reject-old "$CHART" \
-  --set image='registry.relizahub.com/library/oolong-server:25.10.6@sha256:23718baf897d31a780b18b3d910b06407c9cddb64c7e3e7df68944ef1092235b' \
+  --set image='registry.rearmhq.com/library/oolong-server:25.10.6' \
   >"$CASE_OUT" 2>&1; then
   echo "ASSERT FAILED: helm template should reject 25.10.6"
   exit 1
