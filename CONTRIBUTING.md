@@ -46,7 +46,7 @@ Scan through the [existing issues](https://github.com/oolong-project/oolong/issu
 
 ## Developer Certificate of Origin (DCO)
 
-Oolong uses the [Developer Certificate of Origin](https://developercertificate.org/) (DCO), the contributor agreement recommended by the OWASP project policy. By signing off a commit, you certify the following:
+Oolong uses the [Developer Certificate of Origin](https://developercertificate.org/) (DCO). By signing off a commit, you certify the following:
 
 ```
 Developer Certificate of Origin
