@@ -256,6 +256,10 @@ Refer to [IMPLEMENTATION_NOTES.md](oolong/oolong-server/IMPLEMENTATION_NOTES.md)
 - Pavel Shukhman ([@taleodor](https://github.com/taleodor))
 - Matt Rutkowski ([@mrutkows](https://github.com/mrutkows))
 
+## Contributors
+- Rhythm Garg ([@logicflakes](https://github.com/logicflakes))
+- Mehrnoush Vaseghipanah ([@Mehrn0ush](https://github.com/Mehrn0ush))
+
 ## Supporters
 
 Reliza supports Oolong development with engineering time from its [ReARM](https://github.com/relizaio/rearm) team, and currently hosts the public demo instance and container registry.
