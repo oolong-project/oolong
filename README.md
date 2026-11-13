@@ -11,36 +11,38 @@ This project is a lightweight implementation of [Transparency Exchange API](http
 The project was originally developed by Reliza, contributors to TEA specification and authors of [ReARM](https://github.com/relizaio/rearm) release governance platform, which includes full-featured TEA implementation, including UI and artifact storage.
 
 ## Live Demo
-Live demo server is currently operating at oolong-demo.rearmhq.com.
+Live demo server is currently operating at oolong.demo.rearmhq.com.
 
-I.e., you can access well-known at [https://oolong-demo.rearmhq.com/.well-known/tea](https://oolong-demo.rearmhq.com/.well-known/tea).
+I.e., you can access well-known at [https://oolong.demo.rearmhq.com/.well-known/tea](https://oolong.demo.rearmhq.com/.well-known/tea).
 
-Also you can download [ReARM CLI](https://github.com/relizaio/rearm-cli) and try out full flow with TEI urn:tei:asin:oolong-demo.rearmhq.com:B09D6HR559
+Also you can download [ReARM CLI](https://github.com/relizaio/rearm-cli) and try out full flow with TEI tei://oolong.demo.rearmhq.com/asin/B09D6HR559
 
 using 
 
 ```bash
-rearm tea full_tea_flow --debug true --tei urn:tei:asin:oolong-demo.rearmhq.com:B09D6HR559
+rearm tea full_tea_flow --debug true --tei tei://oolong.demo.rearmhq.com/asin/B09D6HR559
 ```
 
 ## Sample Data
-Additional sample data can be found in the [Reliza-Demos/conferences-oolong-content-2025-11](https://github.com/Reliza-Demos/conferences-oolong-content-2025-11) repository.
+Additional sample data, in the TEA 1.0.0 content layout, can be found in the [oolong-project/oolong-demo-content](https://github.com/oolong-project/oolong-demo-content) repository. It carries the catalogs first shown in [Reliza-Demos/conferences-oolong-content-2025-11](https://github.com/Reliza-Demos/conferences-oolong-content-2025-11).
 
-TEIs with full ReARM CLI commands that can be used against it:
+TEIs with full ReARM CLI commands (26.11.6 or later, the TEA 1.0.0 client) that can be used against it. A `purl` TEI carries the Package URL Base64URL-encoded without padding, as TEA 1.0.0 requires; the decoded PURL is shown in the comment:
 
 #### Kauf Bulb Demo:
 ```bash
-rearm tea full_tea_flow --debug true --tei urn:tei:uuid:oolong-demo.rearmhq.com:9485fbc9-aa7d-4c26-95c9-d5a8ccb1c073
-rearm tea full_tea_flow --debug true --tei urn:tei:asin:oolong-demo.rearmhq.com:B09D6HR559
+rearm tea full_tea_flow --debug true --tei tei://oolong.demo.rearmhq.com/uuid/9485fbc9-aa7d-4c26-95c9-d5a8ccb1c073
+rearm tea full_tea_flow --debug true --tei tei://oolong.demo.rearmhq.com/asin/B09D6HR559
 ```
 
 As shown on OWASP 2025 Global AppSec USA.
 
 #### Apache Log4j Demo:
 ```bash
-rearm tea full_tea_flow --debug true --tei urn:tei:purl:oolong-demo.rearmhq.com:pkg:maven/org.apache.logging.log4j/log4j-core@2.25.0
-rearm tea full_tea_flow --debug true --tei urn:tei:uuid:oolong-demo.rearmhq.com:ff08fa6a-1df9-4ab7-b3ec-e02837845a06
-rearm tea full_tea_flow --debug true --tei urn:tei:purl:oolong-demo.rearmhq.com:pkg:github/apache/logging-log4j2
+# pkg:maven/org.apache.logging.log4j/log4j-core@2.25.0
+rearm tea full_tea_flow --debug true --tei tei://oolong.demo.rearmhq.com/purl/cGtnOm1hdmVuL29yZy5hcGFjaGUubG9nZ2luZy5sb2c0ai9sb2c0ai1jb3JlQDIuMjUuMA
+rearm tea full_tea_flow --debug true --tei tei://oolong.demo.rearmhq.com/uuid/ff08fa6a-1df9-4ab7-b3ec-e02837845a06
+# pkg:github/apache/logging-log4j2
+rearm tea full_tea_flow --debug true --tei tei://oolong.demo.rearmhq.com/purl/cGtnOmdpdGh1Yi9hcGFjaGUvbG9nZ2luZy1sb2c0ajI
 ```
 
 As shown on Open Source SecCon 2025 in Atlanta - video available at [https://www.youtube.com/watch?v=na30ADqKH0c](https://www.youtube.com/watch?v=na30ADqKH0c).
