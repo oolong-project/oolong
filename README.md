@@ -4,7 +4,7 @@
 
 This project is a lightweight implementation of [Transparency Exchange API](https://github.com/CycloneDX/transparency-exchange-api/).
 
-The project was originally developed by Reliza team contributing to the TEA specification and building [ReARM](https://github.com/relizaio/rearm) release governance platform.
+Oolong was originally developed by [Reliza](https://reliza.io), a contributor to the Transparency Exchange API specification.
 
 ## Live Demo
 Live demo server is currently operating at https://oolong.demo.rearmhq.com.
@@ -250,3 +250,12 @@ The server reads `CONTENT_DIR`, or `../fixtures/tea-1.0.0` when that variable is
 
 ## More Documentation
 Refer to [IMPLEMENTATION_NOTES.md](oolong/oolong-server/IMPLEMENTATION_NOTES.md) for more details.
+
+## Project Leaders
+
+- Pavel Shukhman ([@taleodor](https://github.com/taleodor))
+- Matt Rutkowski ([@mrutkows](https://github.com/mrutkows))
+
+## Supporters
+
+Reliza supports Oolong development with engineering time from its [ReARM](https://github.com/relizaio/rearm) team, and currently hosts the public demo instance and container registry.
