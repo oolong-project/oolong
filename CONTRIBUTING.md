@@ -106,15 +106,14 @@ Once your pull request is merged, your change is included in the next Oolong rel
 
 ## Licensing of contributions
 
-Oolong is licensed under the [MIT License](./LICENSE). So that the project can keep the option of changing its license in the future, every contribution to this repository is accepted on the following terms, in addition to the DCO.
+Oolong is licensed under the [MIT License](./LICENSE). Every contribution to this repository is accepted on the following terms, in addition to the DCO.
 
 By submitting a contribution (a pull request, patch, or any other material you intentionally send to us for inclusion in this repository), you agree that:
 
 1. **You have the right to contribute it.** The contribution is your original work, or you otherwise have the right to submit it under these terms, including, where applicable, permission from your employer.
 2. **It is licensed to the project and to everyone under the MIT License.** Your contribution is licensed under the [MIT License](./LICENSE) that applies to this repository.
-3. **You additionally grant a right to relicense it.** In addition to (2), you grant the Oolong project leaders (currently Pavel Shukhman and Matt Rutkowski, and their successors as project leaders) and Reliza Incorporated a perpetual, worldwide, non-exclusive, royalty-free, irrevocable license to use, reproduce, modify, distribute, sublicense and otherwise exploit your contribution, with or without modification, **under any license terms**, for example under a different open-source license should the project's license change.
-4. **You keep your copyright.** Nothing here assigns your copyright to anyone. You can use your own contribution for anything else you like.
-5. **No warranty.** Unless required by law or agreed in writing, you provide your contribution "as is", without warranties of any kind.
+3. **You keep your copyright.** Nothing here assigns your copyright to anyone. You can use your own contribution for anything else you like.
+4. **No warranty.** Unless required by law or agreed in writing, you provide your contribution "as is", without warranties of any kind.
 
 If you cannot agree to these terms, for instance because your employer's policy does not allow it, please say so in the pull request before we spend time on review, and we will work out what is possible.
 
