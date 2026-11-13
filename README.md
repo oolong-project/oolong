@@ -1,17 +1,13 @@
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
 
- **Social:**
-[![Discord](https://img.shields.io/discord/757425726143201370.svg?color=%237289da&label=Discord&logo=discord&logoColor=%237289da)](https://discord.gg/UTxjBf9juQ)
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-blue.svg?logo=LinkedIn)](https://www.linkedin.com/company/relizaio/)
-
 # Oolong - lightweight TEA server implementation
 
-This project is a lightweight implementation of [Transparency Exchange API](https://github.com/CycloneDX/transparency-exchange-api/) which uses [NestJS](https://nestjs.com/) framework.
+This project is a lightweight implementation of [Transparency Exchange API](https://github.com/CycloneDX/transparency-exchange-api/).
 
-The project was originally developed by Reliza, contributors to TEA specification and authors of [ReARM](https://github.com/relizaio/rearm) release governance platform, which includes full-featured TEA implementation, including UI and artifact storage.
+The project was originally developed by Reliza team contributing to the TEA specification and building [ReARM](https://github.com/relizaio/rearm) release governance platform.
 
 ## Live Demo
-Live demo server is currently operating at oolong.demo.rearmhq.com.
+Live demo server is currently operating at https://oolong.demo.rearmhq.com.
 
 I.e., you can access well-known at [https://oolong.demo.rearmhq.com/.well-known/tea](https://oolong.demo.rearmhq.com/.well-known/tea).
 
@@ -58,7 +54,7 @@ The provided Dockerfile will package content from `oolong/content/` directory. T
 
 Alternatively, you can mount the content with docker-compose or using git pod in the helm chart installation. If using git pod option, the content will be synchronized with the git repository at the specified interval.
 
-For content management, use [ReARM CLI](https://github.com/relizaio/rearm-cli). See documentation for oolong content management commands [here](https://github.com/relizaio/rearm-cli/blob/main/docs/oolong.md).
+For content management, you may use and text editor, IDE, AI agents or [ReARM CLI](https://github.com/relizaio/rearm-cli). For the later case, see documentation for oolong content management commands [here](https://github.com/relizaio/rearm-cli/blob/main/docs/oolong.md).
 
 ## Build Container Image
 
@@ -110,8 +106,6 @@ docker-compose -f docker-compose.dev.yml up -d --build
 
 ## Installation via helm chart
 
-**Required image override.** This chart's liveness probe (`/healthz`) and git snapshot loader are not in the published `25.10.6` image. Helm fails unless you set `image` to a build from this branch. The default `values.yaml` `image` is empty on purpose.
-
 The server requires `PAGE_TOKEN_SECRET` unless `PAGE_TOKEN_DEV_FALLBACK=true` and `NODE_ENV` is not `production`. The chart always supplies the Secret and never sets the development fallback. Alternatively, create a Secret yourself and set `pageTokenSecret.create=false` and `pageTokenSecret.existingSecret`.
 
 The TEA API is unauthenticated by design and is intended for a public catalog. Anyone who can reach the Service can read the mounted content. For private content, require authentication at the ingress and do not expose the ClusterIP Service (or pod port) without that control. Artifact download endpoints issue `302 Location` for publisher `http`/`https` URLs stored in the catalog; the server does not fetch those URLs (not server-side SSRF). Other URI schemes remain valid on the TEA object but are not used as redirect targets.
@@ -152,7 +146,7 @@ helm upgrade --install --create-namespace -n oolong oolong helm-chart/oolong \
 
 ### Using official chart from registry
 
-Do not install the published `0.0.7` chart / `25.10.6` image for this branch. Use the local chart and a compatible image override until a new image is published.
+You may use official chart from the registry, `registry.rearmhq.com/library/oolong`.
 
 ### Git Pod Configuration
 
