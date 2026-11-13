@@ -6,9 +6,6 @@ It applies to everyone taking part in the project: in issues, pull requests, dis
 
 ## Reporting
 
-If you experience or witness behaviour that violates the Code of Conduct, you can:
-
-- contact the project leaders, Pavel Shukhman ([@taleodor](https://github.com/taleodor), pavel.shukhman@owasp.org) and Matt Rutkowski ([@mrutkows](https://github.com/mrutkows)); or
-- report it to OWASP as the Code of Conduct describes, through the [OWASP Whistleblower and Anti-Retaliation Policy](https://policy.owasp.org/operational/whistleblower.html), to a Compliance Officer or the Executive Director.
+If you experience or witness behaviour that violates the Code of Conduct, contact the project leaders, Pavel Shukhman ([@taleodor](https://github.com/taleodor), pavel.shukhman@owasp.org) and Matt Rutkowski ([@mrutkows](https://github.com/mrutkows)).
 
 Reports are handled confidentially.
