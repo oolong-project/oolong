@@ -32,9 +32,8 @@ The mounted application is `src/tea/`. `src/main.ts` calls `createApp()` and lis
 | `well-known.controller.ts` | `GET /.well-known/tea`; `503` until a content snapshot is ready |
 | `health.controller.ts` | `GET /healthz`: process liveness only, independent of content |
 
-Not mounted and not imported by the running server: `src/handlers/`, `src/utils/content-loader.ts`,
-`src/controllers/well-known.controller.ts` (the pre-1.0 implementation) and `src/generated-nest/`
-(the OpenAPI Generator snapshot of the Beta 2 contract; see `docs/tea-upgrade/generator-strategy.md`).
+The handlers are written by hand against the pinned contract; no generated code is used (the pre-1.0
+implementation and the OpenAPI Generator snapshot of the Beta 2 contract have been removed).
 
 ## API Surface
 
