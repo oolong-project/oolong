@@ -236,7 +236,7 @@ that tree, renames Kauf Bulb, and checks that `/v1.0.0/products` returns the new
 
 The running API is the handwritten server in `oolong/oolong-server/src/tea`, written against the pinned contract in `tea-spec/openapi.yaml`. No generated code is used.
 
-OpenAPI Generator CLI 7.16.0 can emit models for the pinned 1.0.0 document, but its download controllers do not preserve binary responses or the `If-None-Match` header, so it is not used for the server. The trial is recorded in `docs/tea-upgrade/generator-strategy.md`.
+OpenAPI Generator CLI 7.16.0 can emit models for the pinned 1.0.0 document, but its download controllers do not preserve binary responses or the `If-None-Match` header, so it is not used for the server. See the Code Generation section of `oolong/oolong-server/IMPLEMENTATION_NOTES.md`.
 
 ## Run Locally for Development
 

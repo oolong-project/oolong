@@ -9,9 +9,7 @@ transparency-exchange-api commit `962a0228af1bfcc1232ac3f79239317ff33fdb04` (pro
 
 Routes are mounted at `/v1.0.0`. `/.well-known/tea` and `/healthz` stay outside that prefix.
 
-Detailed API behaviour (error bodies, pagination tokens, discovery ordering, download validators) and
-the upgrade audit are in [`docs/tea-upgrade/implementation-report.md`](../../docs/tea-upgrade/implementation-report.md)
-and the other notes in `docs/tea-upgrade/`. This file describes the code as it is now.
+This file describes the code as it is now; the code and its tests are the reference.
 
 ## Code Layout
 
@@ -69,6 +67,25 @@ Query methods search each object's `identifiers` array:
 - `idType` alone matches an object that has at least one identifier of that type.
 - `idValue` alone is rejected. The TEA 1.0 text does not settle that case, so this rejection is Oolong behavior, not a claimed specification requirement.
 
+### Artifact Downloads
+`/artifact/{uuid}/{version|latest}/download` and `.../signature/download`:
+
+- **Format selection.** With `?mediaType=`, that format is used (a wildcard or unknown media type is
+  `406 NO_ACCEPTABLE_FORMAT`). Without it, the `Accept` header picks the best match by quality and
+  specificity, ties going to the earlier format; no `Accept` gives the first format; no acceptable format
+  is `406`.
+- **Hosted vs external.** A format with a local `bodyFile` (or `signatureFile`) is served from disk. One
+  with only a `url` (or `signatureUrl`) answers `302` to it; only `http` and `https` locations are
+  redirected. A signature that is neither hosted nor linked is `404 SIGNATURE_NOT_FOUND`.
+- **Headers.** Hosted bytes are sent with `ETag`, `Cache-Control` (`no-cache` for `latest`,
+  `public, max-age=31536000, immutable` for a pinned version), `Content-Location` (the pinned-version URL
+  with `?mediaType=`) and `Content-Disposition`; signatures as `application/octet-stream`.
+  `Vary: Accept` is sent whenever `mediaType` is not in the query, because `Accept` then chose the format.
+- **Validators.** The strong `ETag` is the quoted SHA-256 of `tea-representation-v1`, a NUL byte and the
+  bytes; it is an HTTP validator, not a TEA checksum. A matching `If-None-Match` gives `304` with the same
+  `ETag`, `Content-Location`, `Cache-Control` and `Vary` and no body. `HEAD` sends the headers without a
+  body. No HTTP content coding is applied, and `Repr-Digest` (optional in the contract) is not sent.
+
 ### Errors
 Known operations answer `{ "error", "message"? }` with one of `OBJECT_UNKNOWN`, `NOT_IMPLEMENTED`,
 `INVALID_REQUEST`, `INVALID_PAGE_TOKEN`, `NO_ACCEPTABLE_FORMAT` and `SIGNATURE_NOT_FOUND`. UUID path
@@ -106,8 +123,9 @@ parameters are validated before lookup.
   artifact body to 32,000,000 bytes. Paths, including symlink targets, that resolve outside the
   content root are ignored or refused; symlinks inside it are followed without looping.
 
-Examples: `fixtures/tea-1.0.0` (the default content root and test fixtures; identifiers in
-`docs/tea-upgrade/fixture-reference.md`), `sample_content/`, and the demo catalog in
+Examples: `fixtures/tea-1.0.0` (the default content root and test fixtures, covering pagination,
+discovery, hosted and external downloads, signatures and artifact revisions), `sample_content/`, and the
+demo catalog in
 [oolong-project/oolong-demo-content](https://github.com/oolong-project/oolong-demo-content).
 The `rearm oolong` content commands of [ReARM CLI](https://github.com/relizaio/rearm-cli) write this
 layout from the release after 26.11.6 (relizaio/rearm-cli#193); 26.11.6 and earlier write the pre-1.0
@@ -194,6 +212,19 @@ The URL is the `SERVER_HOST` value.
 - **Container:** the Dockerfile (Node 24 on Alpine, runs as an unprivileged user) bakes in
   `fixtures/tea-1.0.0` as `/app/src/content`; mount another directory over it, or use the Git pod, to
   serve your own content.
+- **Interop profile:** `docker-compose.tea-interop.yml` builds the local image, serves the fixtures
+  read-only on `127.0.0.1:3005` (`SERVER_HOST=http://127.0.0.1:3005`) with a fixed local
+  `PAGE_TOKEN_SECRET`, and records the pinned spec commit as `TEA_SPEC_COMMIT`. Use it to test TEA
+  clients against a known catalog.
+
+## Code Generation
+
+The server is written by hand against `tea-spec/openapi.yaml`. A trial with OpenAPI Generator CLI 7.16.0
+(`typescript-nestjs-server`) produced models that match the 1.0.0 shapes (flat `latestCollection`,
+`hasNext` / `nextPageToken`, `mediaType`, no MD5), but its download controllers are not usable: the body
+is typed `Blob`, which Nest serialises as JSON, and `If-None-Match` is not bound as a header. The generator
+is therefore not used. If it is revisited, generate into a separate directory, review the output against
+the pinned contract, and keep request handling in `src/tea`.
 
 ## Testing
 
