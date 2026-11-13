@@ -56,14 +56,81 @@ Alternatively, you can mount the content with docker-compose or using git pod in
 
 For content management, you may use any text editor, IDE, AI agents or [ReARM CLI](https://github.com/relizaio/rearm-cli). For the latter case, see documentation for oolong content management commands [here](https://github.com/relizaio/rearm-cli/blob/main/docs/oolong.md).
 
-## Build Container Image
+## Deployment
+
+Oolong is published as a Helm chart and a container image. Installing the official chart is the recommended way to deploy; building the image and chart yourself is described after it.
+
+Each [GitHub release](https://github.com/oolong-project/oolong/releases) attaches an OBOM that lists the artifacts of that release: the chart, the `oolong-server` image and the `alpine/git` image used by the Git pod, with their versions and digests.
+
+### Install with the official Helm chart (recommended)
+
+The chart is published at `oci://registry.rearmhq.com/library/oolong`. Without `--version`, Helm installs the newest chart; add `--version <chart version>` to pin one. Set `env.SERVER_HOST` to the public URL of your server: it is the URL `/.well-known/tea` and discovery return to clients.
+
+#### Bare install
+
+```bash
+helm upgrade --install --create-namespace -n oolong oolong \
+  oci://registry.rearmhq.com/library/oolong \
+  --set env.SERVER_HOST='https://tea.example.com'
+```
+
+The server starts with an empty catalog on a persistent volume mounted at `/app/src/content`. Add your content there (see [Content Management](#content-management)) and restart the server (`kubectl -n oolong rollout restart deploy/oolong`), since static content is read at startup; or use the Git pod below, which reloads content without restarts.
+
+#### Install with the demo catalog
+
+To serve the demo catalog from [oolong-project/oolong-demo-content](https://github.com/oolong-project/oolong-demo-content), as the [live demo](#live-demo) does, enable the Git pod:
+
+```bash
+helm upgrade --install --create-namespace -n oolong oolong \
+  oci://registry.rearmhq.com/library/oolong \
+  --set env.SERVER_HOST='https://tea.example.com' \
+  --set gitPod.enabled=true \
+  --set gitPod.repoUrl='https://github.com/oolong-project/oolong-demo-content'
+```
+
+The Git pod syncs the repository every 60 seconds and the server picks up each new valid revision. Point `gitPod.repoUrl` at your own content repository to serve your catalog the same way; see [Git Pod Configuration](#git-pod-configuration), including private repositories.
+
+#### Exposing the server
+
+The chart creates a ClusterIP Service on port 3000. To expose it, either route your own ingress to that Service, or use the chart's Traefik `IngressRoute`:
+
+- `--set useTraefikLe=true --set ingressHost=tea.example.com` - Traefik on `websecure` with a Let's Encrypt certificate (requires a Traefik certificate resolver named `le`)
+- `--set useTraefikDevelopment=true --set ingressHost=oolong.localhost` - Traefik on `web`, plain HTTP for local clusters
+
+`env.SERVER_HOST` should match the URL clients use.
+
+#### Chart notes
+
+The server requires `PAGE_TOKEN_SECRET` unless `PAGE_TOKEN_DEV_FALLBACK=true` and `NODE_ENV` is not `production`. The chart always supplies the Secret and never sets the development fallback. Alternatively, create a Secret yourself and set `pageTokenSecret.create=false` and `pageTokenSecret.existingSecret`.
+
+The TEA API is unauthenticated by design and is intended for a public catalog. Anyone who can reach the Service can read the mounted content. For private content, require authentication at the ingress and do not expose the ClusterIP Service (or pod port) without that control. Artifact download endpoints issue `302 Location` for publisher `http`/`https` URLs stored in the catalog; the server does not fetch those URLs (not server-side SSRF). Other URI schemes remain valid on the TEA object but are not used as redirect targets.
+
+With an empty PVC, mount content via git pod or populate the volume; otherwise git mode stays unready until the first valid revision is published.
+
+### Run the official container image
+
+The `oolong-server` image is published at `registry.rearmhq.com/library/oolong-server` (linux/amd64). Use the version and digest listed in the release OBOM:
+
+```bash
+docker run -p 127.0.0.1:3000:3000 \
+  -v /path/to/content:/app/src/content:ro \
+  -e SERVER_HOST=https://tea.example.com \
+  -e PAGE_TOKEN_SECRET="$(openssl rand -base64 48)" \
+  registry.rearmhq.com/library/oolong-server:<version>
+```
+
+The image serves `/app/src/content` (`CONTENT_DIR`); without a mount it serves the test fixtures baked into the image. `API_VERSION=v1.0.0` is set in the image. `PAGE_TOKEN_SECRET` is required.
+
+### Build and run locally
+
+#### Build the container image
 
 ```bash
 cd oolong
 docker build -t oolong-local .
 ```
 
-## Run Container Image
+#### Run the locally built image
 
 The following command shows how to run the container image with a custom content directory and environment variables.
 
@@ -79,9 +146,9 @@ docker run -p 127.0.0.1:3000:3000 \
 
 It is possible to mount the content directory to the container and use it as a volume. This way, you can update the content directory and the container will use the updated content.
 
-## Run with Docker Compose
+#### Run with Docker Compose
 
-### Production-style Compose (local image)
+##### Production-style Compose (local image)
 
 Builds the production image (`NODE_ENV=production`), mounts `fixtures/tea-1.0.0`, and requires `PAGE_TOKEN_SECRET`:
 
@@ -93,7 +160,7 @@ docker compose up -d --build
 
 The server listens on `http://127.0.0.1:3005`.
 
-### Development Mode
+##### Development Mode
 
 Build and run with `NODE_ENV=development` and the explicit pagination-key opt-in (`PAGE_TOKEN_DEV_FALLBACK=true`). That fallback is disabled whenever `NODE_ENV=production`.
 
@@ -103,16 +170,7 @@ docker-compose -f docker-compose.dev.yml up -d --build
 
 `docker-compose.tea-interop.yml` is the pinned-spec interop profile: same fixtures, `TEA_SPEC_COMMIT=962a0228af1bfcc1232ac3f79239317ff33fdb04`, and a fixed local `PAGE_TOKEN_SECRET` for CI-style checks.
 
-
-## Installation via helm chart
-
-The server requires `PAGE_TOKEN_SECRET` unless `PAGE_TOKEN_DEV_FALLBACK=true` and `NODE_ENV` is not `production`. The chart always supplies the Secret and never sets the development fallback. Alternatively, create a Secret yourself and set `pageTokenSecret.create=false` and `pageTokenSecret.existingSecret`.
-
-The TEA API is unauthenticated by design and is intended for a public catalog. Anyone who can reach the Service can read the mounted content. For private content, require authentication at the ingress and do not expose the ClusterIP Service (or pod port) without that control. Artifact download endpoints issue `302 Location` for publisher `http`/`https` URLs stored in the catalog; the server does not fetch those URLs (not server-side SSRF). Other URI schemes remain valid on the TEA object but are not used as redirect targets.
-
-With an empty PVC, mount content via git pod or populate the volume; otherwise git mode stays unready until the first valid revision is published.
-
-### Using local chart (development mode)
+#### Install the local chart
 
 Local image on kind (after `kind load docker-image oolong-server:local`):
 
@@ -144,9 +202,7 @@ helm upgrade --install --create-namespace -n oolong oolong helm-chart/oolong \
     --set env.SERVER_HOST='http://oolong.localhost:8003'
 ```
 
-### Using official chart from registry
-
-You may use official chart from the registry, `registry.rearmhq.com/library/oolong`.
+## Helm Chart Configuration
 
 ### Git Pod Configuration
 
@@ -199,8 +255,7 @@ Two render-time refusals protect against leaks. For `none` and `token`, a `gitPo
 Server pods are labeled `app.kubernetes.io/component=server` and Git pods `app.kubernetes.io/component=git`, so `kubectl logs deploy/<release>` no longer selects both. Those Deployment selectors are immutable: if an upgrade from an older chart fails, delete the two Deployments (keep the PVC) and run `helm upgrade` again.
 
 ```bash
-helm upgrade --install --create-namespace -n oolong oolong helm-chart/oolong \
-  --set image=oolong-server:local \
+helm upgrade --install --create-namespace -n oolong oolong oci://registry.rearmhq.com/library/oolong \
   --set gitPod.enabled=true \
   --set gitPod.repoUrl='https://github.com/your-org/your-repo.git' \
   --set gitPod.branch='main' \
