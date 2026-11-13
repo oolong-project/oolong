@@ -42,15 +42,14 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD ["node", "tea-ready.js"]
 
 
-LABEL org.opencontainers.image.vendor="Reliza Incorporated"
+LABEL org.opencontainers.image.vendor="Oolong project"
 LABEL org.opencontainers.image.licenses="MIT"
 LABEL org.opencontainers.image.version="${VERSION}"
 LABEL org.opencontainers.image.revision="${GIT_COMMIT}"
-LABEL org.opencontainers.image.created="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
-LABEL org.opencontainers.image.source="https://github.com/reliza/oolong"
-LABEL org.opencontainers.image.url="https://github.com/reliza/oolong"
-LABEL org.opencontainers.image.description="Oolong is a minimal TEA server implementation"
-LABEL org.opencontainers.image.authors="Reliza Incorporated <info@reliza.io>"
+LABEL org.opencontainers.image.source="https://github.com/oolong-project/oolong"
+LABEL org.opencontainers.image.url="https://github.com/oolong-project/oolong"
+LABEL org.opencontainers.image.description="Oolong is a lightweight Transparency Exchange API (TEA) 1.0.0 server"
+LABEL org.opencontainers.image.authors="Oolong project maintainers (https://github.com/oolong-project/oolong)"
 LABEL git_commit="${GIT_COMMIT}"
 LABEL git_branch="${GIT_BRANCH}"
 LABEL ci_environment="${CI_ENV}"
