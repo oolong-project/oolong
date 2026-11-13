@@ -46,7 +46,7 @@ Slides available [here](https://www.slideshare.net/slideshow/open-source-securit
 
 ## Content Management
 
-We provided  `oolong/sample_content/` directory for development and testing purposes. 
+We provided `oolong/sample_content/` directory for development and testing purposes. 
 
 Oolong serves the TEA content found under `CONTENT_DIR`. When running via npm from `oolong/oolong-server/` without `CONTENT_DIR`, it serves the test fixtures in `oolong/fixtures/tea-1.0.0/`; set `CONTENT_DIR=../sample_content` (or any other content directory) to serve something else.
 
@@ -54,7 +54,7 @@ The provided Dockerfile bakes the content of `oolong/fixtures/tea-1.0.0/` into t
 
 Alternatively, you can mount the content with docker-compose or using git pod in the helm chart installation. If using git pod option, the content will be synchronized with the git repository at the specified interval.
 
-For content management, you may use and text editor, IDE, AI agents or [ReARM CLI](https://github.com/relizaio/rearm-cli). For the later case, see documentation for oolong content management commands [here](https://github.com/relizaio/rearm-cli/blob/main/docs/oolong.md).
+For content management, you may use any text editor, IDE, AI agents or [ReARM CLI](https://github.com/relizaio/rearm-cli). For the latter case, see documentation for oolong content management commands [here](https://github.com/relizaio/rearm-cli/blob/main/docs/oolong.md).
 
 ## Build Container Image
 
@@ -224,19 +224,19 @@ helm upgrade --install --create-namespace -n oolong oolong helm-chart/oolong \
 
 The Git pod treats `/_work` as a disposable checkout: it fetches `gitPod.branch`, checks out that exact commit, copies it into `/content/revisions/<sha>/`, and atomically updates `/content/.oolong-current-revision`. The server polls automatically when git sync is enabled. Invalid revisions are rejected and the previous snapshot keeps serving.
 
-A TEA 1.0.0 conversion of the conference demo catalog lives in the sibling
-`conferences-oolong-content-2025-11` clone
-([Reliza-Demos/conferences-oolong-content-2025-11](https://github.com/Reliza-Demos/conferences-oolong-content-2025-11)).
-After that conversion is pushed, set `gitPod.repoUrl` to that repository. The
-`conference-git-live` end-to-end test publishes a local clone of that tree,
-renames Kauf Bulb, and checks that `/v1.0.0/products` returns the new name.
+The demo catalog, in the TEA 1.0.0 content layout, is
+[oolong-project/oolong-demo-content](https://github.com/oolong-project/oolong-demo-content); the live demo at
+oolong.demo.rearmhq.com syncs it with `gitPod.repoUrl=https://github.com/oolong-project/oolong-demo-content`.
+The `conference-git-live` end-to-end test runs when a copy of that catalog is checked out as a real directory
+(not a symlink) at `conferences-oolong-content-2025-11` next to this repository: it publishes a local clone of
+that tree, renames Kauf Bulb, and checks that `/v1.0.0/products` returns the new name.
 
 
 ## Generation from TEA OpenAPI Specification
 
-The running API is the handwritten server in `oolong/oolong-server/src/tea`. `src/generated-nest` remains the Beta 2 snapshot and is not mounted.
+The running API is the handwritten server in `oolong/oolong-server/src/tea`, written against the pinned contract in `tea-spec/openapi.yaml`. No generated code is used.
 
-OpenAPI Generator CLI 7.16.0 can emit models for the pinned 1.0.0 document, and its download controllers do not preserve binary responses or the `If-None-Match` header. Do not regenerate into `src/generated-nest`. The trial is recorded in `docs/tea-upgrade/generator-strategy.md`.
+OpenAPI Generator CLI 7.16.0 can emit models for the pinned 1.0.0 document, but its download controllers do not preserve binary responses or the `If-None-Match` header, so it is not used for the server. The trial is recorded in `docs/tea-upgrade/generator-strategy.md`.
 
 ## Run Locally for Development
 
