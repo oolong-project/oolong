@@ -2,7 +2,7 @@ apiVersion: v2
 name: oolong
 description: A Helm chart for Oolong - a lightweight Transparency Exchange API (TEA) server
 type: application
-version: 0.1.3
+version: 0.1.4
 appVersion: "26.11.11"
 keywords:
   - TEA
